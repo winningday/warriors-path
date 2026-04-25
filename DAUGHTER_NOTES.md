@@ -85,6 +85,14 @@ Each entry is dated. Closed entries (✓) have been addressed in code; open entr
 
 ---
 
+## Post-v12 feedback (2026-04-25)
+
+### Clan visual identity
+
+- ○ Each Clan should have its own **font color** when selected/displayed (text only, not background). Right now every Clan uses the same coloring, and WindClan's yellow text "gives me ThunderClan vibes." Pick a distinct accent color per Clan that matches the Clan's identity (e.g., ThunderClan = warm amber/gold, WindClan = something airy/pale that is NOT yellow, ShadowClan = dark purple or deep green, RiverClan = blue/teal). Verify final palette with her.
+
+---
+
 ## How to add to this file
 
 When she gives feedback, log it here verbatim or near-verbatim. Group by theme. Mark `○` for open, `✓` for addressed. When closing an entry, add a brief note: `✓ (v13: rotated 12 location names)`.
