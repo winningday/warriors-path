@@ -1,0 +1,22 @@
+# Save files (personal player data — keep local)
+*-save.json
+!*-save.example.json
+
+# macOS
+.DS_Store
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Env
+.env
+.env.local

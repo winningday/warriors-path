@@ -1,0 +1,22 @@
+{
+  "prefix": "Moss",
+  "suffix": "paw",
+  "clan": "ThunderClan",
+  "furColor": "Tabby",
+  "eyeColor": "Green",
+  "totalCorrect": 0,
+  "totalAttempted": 0,
+  "preyCaught": {
+    "mouse": 0,
+    "vole": 0,
+    "squirrel": 0,
+    "thrush": 0,
+    "rabbit": 0
+  },
+  "streak": 0,
+  "lastPlayed": "",
+  "patrolsToday": 0,
+  "highestRank": "Apprentice",
+  "dateCreated": "2026-01-01T00:00:00.000Z",
+  "rankUp": false
+}
