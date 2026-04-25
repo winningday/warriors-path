@@ -1,0 +1,61 @@
+# Auto-deploy on push to main.
+#
+# Required repo secrets (Settings → Secrets and variables → Actions):
+#   VPS_HOST  — VPS IP or hostname (e.g. 192.0.2.10)
+#   VPS_USER  — unprivileged user that owns /srv/warriors-path/ (e.g. warriors)
+#   VPS_PATH  — destination directory with trailing slash (e.g. /srv/warriors-path/)
+#   VPS_SSH_KEY — private deploy key. Public key is in
+#                 /home/warriors/.ssh/authorized_keys on the VPS, locked to a
+#                 single rsync command (see DEPLOY.md).
+#
+# Behavior:
+#   1. Checkout repo
+#   2. Install deps (npm ci) + build (npm run build) → produces dist/
+#   3. Rsync dist/ to VPS_USER@VPS_HOST:VPS_PATH using the deploy key
+#
+# The deploy key on the VPS is restricted in ~/.ssh/authorized_keys to ONLY
+# accept the exact rsync command below. It cannot run a shell or touch
+# anything outside VPS_PATH.
+
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Deploy via rsync
+        run: |
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes" \
+            dist/ "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ secrets.VPS_PATH }}"

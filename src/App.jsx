@@ -1,0 +1,516 @@
+import React, { useState, useEffect } from 'react';
+
+// Data
+import { CLANS, MENTORS_BY_CLAN, MEDICINE_CATS_BY_CLAN } from './data/clans.js';
+import { PATROLS, PATH_WARRIOR, PATH_MEDICINE, ranksFor } from './data/ranks.js';
+import { PREY_COMMON, PREY_EARLY, HERBS } from './data/prey.js';
+import { PRAISE, PREY_FLAVOR, HERB_FLAVOR, BORDER_FLAVOR, TRAINING_FLAVOR, REVEAL_LINES } from './data/flavor.js';
+import { lookupStrategy } from './data/strategies.js';
+
+// Engine
+import { pick, weightedPick, newSlotId } from './engine/utils.js';
+import { SR_BUCKET, SAVE_VERSION, ensureFact, applySRResult } from './engine/sr.js';
+import { autoRankForCorrect, rollEligibleChanceRank, getFullName } from './engine/rank.js';
+import { generateProblem } from './engine/generators.js';
+import { normalizeProfile, normalizeToV13 } from './engine/migration.js';
+
+// Storage
+import { storage, SAVES_KEY, loadSavesContainer, persistContainer } from './storage/storage.js';
+
+// Shared chrome
+import { styles } from './components/shared/styles.js';
+import { FontLoader } from './components/shared/FontLoader.jsx';
+
+// Views
+import { IntroView } from './components/views/IntroView.jsx';
+import { SlotListView } from './components/views/SlotListView.jsx';
+import { CharacterCreation } from './components/views/CharacterCreation.jsx';
+import { ApprenticeCeremony } from './components/views/ApprenticeCeremony.jsx';
+import { NameCeremony } from './components/views/NameCeremony.jsx';
+import { DeputyCeremony } from './components/views/DeputyCeremony.jsx';
+import { LeaderCeremony } from './components/views/LeaderCeremony.jsx';
+import { DenView } from './components/views/DenView.jsx';
+import { PatrolView } from './components/views/PatrolView.jsx';
+import { CompleteView } from './components/views/CompleteView.jsx';
+import { StoryPromptView } from './components/views/StoryPromptView.jsx';
+import { FlashcardsView } from './components/views/FlashcardsView.jsx';
+
+// =====================================================================
+// MAIN COMPONENT
+// =====================================================================
+
+export default function WarriorsPath() {
+  const [container, setContainer] = useState(null);
+  const [view, setView] = useState('loading');
+  const [patrol, setPatrol] = useState(null);
+  const [answerInput, setAnswerInput] = useState('');
+  const [feedback, setFeedback] = useState(null);
+  const [showHint, setShowHint] = useState(false);
+  const [showStrategy, setShowStrategy] = useState(false);
+  const [storyPrompt, setStoryPrompt] = useState(null);
+  const [storyDraft, setStoryDraft] = useState('');
+  const [problemStartedAt, setProblemStartedAt] = useState(null);
+  const [pendingCeremony, setPendingCeremony] = useState(null);
+
+  const profile = container && container.slots.find((s) => s.id === container.activeId);
+
+  useEffect(() => { (async () => {
+    const loaded = await loadSavesContainer();
+    if (loaded && loaded.slots.length > 0) {
+      const active = loaded.slots.find((s) => s.id === loaded.activeId) || loaded.slots[0];
+      const today = new Date().toDateString();
+      if (active.lastPlayed && active.lastPlayed !== today) {
+        const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+        if (active.lastPlayed !== yesterday.toDateString()) active.streak = 0;
+        active.patrolsToday = 0;
+      }
+      loaded.activeId = active.id;
+      setContainer(loaded);
+      setView(loaded.slots.length > 1 ? 'slots' : 'den');
+    } else {
+      setView('intro');
+    }
+  })(); }, []);
+
+  // ---- Slot/profile helpers ----
+
+  const persist = async (next) => { setContainer(next); await persistContainer(next); };
+
+  const updateActive = async (mutator) => {
+    if (!container) return;
+    const next = {
+      ...container,
+      slots: container.slots.map((s) => (s.id === container.activeId ? mutator(s) : s)),
+    };
+    await persist(next);
+    return next.slots.find((s) => s.id === next.activeId);
+  };
+
+  const addSlotAndActivate = async (newProfile) => {
+    const next = container
+      ? { ...container, activeId: newProfile.id, slots: [...container.slots, newProfile] }
+      : { _format: 'warriors-path-saves', _version: SAVE_VERSION, activeId: newProfile.id, slots: [newProfile] };
+    await persist(next);
+  };
+
+  const setActiveSlot = async (id) => {
+    if (!container) return;
+    await persist({ ...container, activeId: id });
+  };
+
+  const deleteSlot = async (id) => {
+    if (!container) return;
+    const remaining = container.slots.filter((s) => s.id !== id);
+    if (remaining.length === 0) {
+      await storage.delete(SAVES_KEY);
+      setContainer(null);
+      setView('intro');
+      return;
+    }
+    const next = { ...container, slots: remaining, activeId: remaining[0].id };
+    await persist(next);
+  };
+
+  // ---- Export / import ----
+
+  const exportProfile = () => {
+    if (!profile) return;
+    const data = { _format: 'warriors-path-save', _version: SAVE_VERSION, _exportedAt: new Date().toISOString(), profile };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `warriors-path-${getFullName(profile)}-${profile.clan}-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const importProfile = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        let raw = null;
+        if (data && data.profile) raw = data.profile;
+        else if (data && Array.isArray(data.slots) && data.slots.length > 0) raw = data.slots[0];
+        else if (data && (data.prefix || data.clan)) raw = data;
+        if (!raw) {
+          alert('That file does not look like a Warrior\'s Path save.');
+          return;
+        }
+        const imported = normalizeProfile({ ...raw, id: newSlotId() });
+        await addSlotAndActivate(imported);
+        setView('den');
+      } catch (err) {
+        alert('Could not read save file: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
+  };
+
+  // ---- Patrol completion / rank-ups / ceremony detection ----
+
+  const finishPatrol = async (correct, rewards) => {
+    const today = new Date().toDateString();
+    const isNewDay = profile.lastPlayed !== today;
+    const updated = await updateActive((p) => {
+      const next = {
+        ...p,
+        totalCorrect: p.totalCorrect + correct,
+        totalAttempted: p.totalAttempted + patrol.problems.length,
+        preyCaught: { ...(p.preyCaught || {}) },
+        herbsCaught: { ...(p.herbsCaught || {}) },
+        streak: isNewDay ? (p.streak || 0) + 1 : p.streak,
+        lastPlayed: today,
+        patrolsToday: isNewDay ? 1 : (p.patrolsToday || 0) + 1,
+      };
+      rewards.prey.forEach((x) => { next.preyCaught[x] = (next.preyCaught[x] || 0) + 1; });
+      rewards.herbs.forEach((x) => { next.herbsCaught[x] = (next.herbsCaught[x] || 0) + 1; });
+
+      // Rank-up: use rankFloor-aware count so migrated saves don't demote on next patrol.
+      // Promotions only ratchet UP.
+      const effectiveCorrect = Math.max(next.totalCorrect, p.rankFloor || 0);
+      const autoRank = autoRankForCorrect(p.path, effectiveCorrect);
+      const ladder = ranksFor(p.path);
+      const currentIdx = ladder.findIndex((r) => r.name === p.rank);
+      const autoIdx = ladder.findIndex((r) => r.name === autoRank);
+      let newRank = autoIdx > currentIdx ? autoRank : p.rank;
+
+      const chancePick = rollEligibleChanceRank({ ...next, rank: newRank });
+      if (chancePick) newRank = chancePick;
+
+      next._rankUp = newRank !== p.rank;
+      next._previousRank = p.rank;
+      next.rank = newRank;
+
+      if (next.rank === 'Leader' && p.rank !== 'Leader') {
+        next._oldSuffix = p.suffix;
+        next.suffix = 'star';
+      }
+      return next;
+    });
+
+    if (updated && updated._rankUp) {
+      const r = updated.rank;
+      if (r === 'Young Warrior') { setPendingCeremony('warrior');  setView('name_ceremony'); return; }
+      if (r === 'Medicine Cat')  { setPendingCeremony('medicine'); setView('name_ceremony'); return; }
+      if (r === 'Deputy')        { setView('deputy_ceremony'); return; }
+      if (r === 'Leader')        { setView('leader_ceremony'); return; }
+    }
+    setView('complete');
+  };
+
+  // =====================================================================
+  // VIEW SWITCH
+  // =====================================================================
+
+  if (view === 'loading') {
+    return (
+      <div style={styles.root}>
+        <FontLoader />
+        <div style={{ textAlign: 'center', padding: '120px 20px', opacity: 0.6 }}>
+          <div style={{ ...styles.display, fontSize: 14, letterSpacing: '0.3em' }}>THE FOREST STIRS...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (view === 'intro') {
+    return <IntroView
+      onStart={() => setView('character')}
+      onImport={importProfile}
+      hasSlots={container && container.slots.length > 0}
+      onChooseSlot={() => setView('slots')}
+    />;
+  }
+
+  if (view === 'slots') {
+    return <SlotListView
+      container={container}
+      onSelect={async (id) => { await setActiveSlot(id); setView('den'); }}
+      onNew={() => setView('character')}
+      onDelete={async (id) => {
+        if (window.confirm('Forget this Clan cat? This cannot be undone. (Save to file first if you want to keep them.)')) {
+          await deleteSlot(id);
+        }
+      }}
+      onImport={importProfile}
+    />;
+  }
+
+  if (view === 'character') {
+    return <CharacterCreation
+      onCreate={async (data) => {
+        const medCatHasOpening = Math.random() < 0.7;
+        const newProfile = {
+          _version: SAVE_VERSION,
+          id: newSlotId(),
+          prefix: data.prefix,
+          suffix: '',
+          path: PATH_WARRIOR,
+          rank: 'Apprentice',
+          clan: data.clan,
+          furColor: data.furColor,
+          eyeColor: data.eyeColor,
+          mentor: null,
+          medCatOpening: medCatHasOpening,
+          totalCorrect: 0,
+          totalAttempted: 0,
+          rankFloor: 0,
+          preyCaught: {},
+          herbsCaught: {},
+          streak: 0,
+          lastPlayed: null,
+          patrolsToday: 0,
+          dateCreated: new Date().toISOString(),
+          factsSR: {},
+          factStories: {},
+        };
+        await addSlotAndActivate(newProfile);
+        setView('apprentice_ceremony');
+      }}
+      onCancel={() => setView(container && container.slots.length > 0 ? 'slots' : 'intro')}
+    />;
+  }
+
+  if (view === 'apprentice_ceremony') {
+    return <ApprenticeCeremony
+      profile={profile}
+      onComplete={async (path) => {
+        await updateActive((p) => {
+          const isMed = path === PATH_MEDICINE;
+          const mentor = isMed
+            ? MEDICINE_CATS_BY_CLAN[p.clan]
+            : pick(MENTORS_BY_CLAN[p.clan] || ['Lionheart']);
+          return {
+            ...p,
+            path,
+            rank: isMed ? 'Medicine Cat Apprentice' : 'Apprentice',
+            mentor,
+          };
+        });
+        setView('den');
+      }}
+    />;
+  }
+
+  if (view === 'name_ceremony') {
+    return <NameCeremony
+      profile={profile}
+      ceremony={pendingCeremony}
+      onComplete={async (suffix) => {
+        await updateActive((p) => ({ ...p, suffix }));
+        setPendingCeremony(null);
+        setView('complete');
+      }}
+    />;
+  }
+
+  if (view === 'deputy_ceremony') {
+    return <DeputyCeremony profile={profile} onContinue={() => setView('complete')} />;
+  }
+
+  if (view === 'leader_ceremony') {
+    return <LeaderCeremony profile={profile} onContinue={() => setView('complete')} />;
+  }
+
+  if (view === 'den') {
+    return <DenView
+      profile={profile}
+      slotsCount={container ? container.slots.length : 0}
+      onStartPatrol={(patrolType) => {
+        const problems = Array.from({ length: 5 }, () => generateProblem(patrolType.topic, profile));
+        setPatrol({ type: patrolType, problems, currentIdx: 0, correct: 0, rewards: { prey: [], herbs: [], borders: 0, training: 0 }, attempts: 0 });
+        setAnswerInput(''); setFeedback(null); setShowHint(false); setShowStrategy(false);
+        setProblemStartedAt(Date.now());
+        setView('patrol');
+      }}
+      onOpenFlashcards={() => setView('flashcards')}
+      onSwitchCharacter={() => setView('slots')}
+      onExport={exportProfile}
+      onImport={importProfile}
+    />;
+  }
+
+  if (view === 'flashcards') {
+    return <FlashcardsView
+      profile={profile}
+      onSave={async (factId, story) => {
+        await updateActive((p) => ({
+          ...p,
+          factStories: { ...(p.factStories || {}), [factId]: story },
+        }));
+      }}
+      onDelete={async (factId) => {
+        await updateActive((p) => {
+          const next = { ...(p.factStories || {}) };
+          delete next[factId];
+          return { ...p, factStories: next };
+        });
+      }}
+      onBack={() => setView('den')}
+    />;
+  }
+
+  // Story prompt overlay takes precedence over the patrol view.
+  if (storyPrompt) {
+    return <StoryPromptView
+      profile={profile}
+      factQuestion={storyPrompt.question}
+      story={storyDraft}
+      onChange={setStoryDraft}
+      onSkip={async () => {
+        const wasResuming = patrol && patrol._pendingResume;
+        setStoryPrompt(null); setStoryDraft('');
+        if (wasResuming) {
+          const np = { ...patrol }; delete np._pendingResume; setPatrol(np);
+          if (patrol.currentIdx >= patrol.problems.length) finishPatrol(patrol.correct, patrol.rewards);
+          else setProblemStartedAt(Date.now());
+        }
+      }}
+      onSave={async () => {
+        const trimmed = storyDraft.trim().slice(0, 200);
+        if (trimmed) {
+          await updateActive((p) => ({ ...p, factStories: { ...(p.factStories || {}), [storyPrompt.factId]: trimmed } }));
+        }
+        const wasResuming = patrol && patrol._pendingResume;
+        setStoryPrompt(null); setStoryDraft('');
+        if (wasResuming) {
+          const np = { ...patrol }; delete np._pendingResume; setPatrol(np);
+          if (patrol.currentIdx >= patrol.problems.length) finishPatrol(patrol.correct, patrol.rewards);
+          else setProblemStartedAt(Date.now());
+        }
+      }}
+    />;
+  }
+
+  if (view === 'patrol') {
+    const current = patrol.problems[patrol.currentIdx];
+    const clan = CLANS.find((c) => c.name === profile.clan);
+    const factStory = current.factId ? (profile.factStories || {})[current.factId] : null;
+    return <PatrolView
+      patrol={patrol}
+      profile={profile}
+      current={current}
+      factStory={factStory}
+      answerInput={answerInput}
+      setAnswerInput={setAnswerInput}
+      feedback={feedback}
+      showHint={showHint}
+      setShowHint={setShowHint}
+      showStrategy={showStrategy}
+      strategy={current.factId ? lookupStrategy(current.factId, current.factA, current.factB) : null}
+      clanAccent={clan.accent}
+      onSubmit={async () => {
+        const num = parseInt(answerInput, 10);
+        if (isNaN(num)) {
+          setFeedback({ type: 'nudge', text: 'Enter a number, warrior.' });
+          return;
+        }
+        const elapsedMs = problemStartedAt ? (Date.now() - problemStartedAt) : 99999;
+
+        const recordSR = async (isCorrect) => {
+          if (!current.factId) return;
+          await updateActive((p) => {
+            const sr = { ...(p.factsSR || {}) };
+            const entry = ensureFact(sr, current.factId);
+            sr[current.factId] = applySRResult(entry, isCorrect, elapsedMs);
+            return { ...p, factsSR: sr };
+          });
+        };
+
+        if (num === current.answer) {
+          await recordSR(true);
+          const reward = buildCorrectReward(patrol.type, profile);
+          setFeedback({ type: 'correct', praise: pick(PRAISE), ...reward });
+          const nextIdx = patrol.currentIdx + 1;
+          const nextRewards = {
+            ...patrol.rewards,
+            prey: reward.prey ? [...patrol.rewards.prey, reward.prey] : patrol.rewards.prey,
+            herbs: reward.herb ? [...patrol.rewards.herbs, reward.herb] : patrol.rewards.herbs,
+            borders: patrol.rewards.borders + (reward.kind === 'border' ? 1 : 0),
+            training: patrol.rewards.training + (reward.kind === 'training' ? 1 : 0),
+          };
+          const updatedPatrol = { ...patrol, correct: patrol.correct + 1, rewards: nextRewards, attempts: 0 };
+
+          const factWasHard = current.factId
+            && !(profile.factStories || {})[current.factId]
+            && (() => {
+              const e = (profile.factsSR || {})[current.factId];
+              if (!e) return false;
+              return e.bucket === SR_BUCKET.WILD || (e.seen >= 2 && (e.correctStreak || 0) <= 1);
+            })();
+
+          setTimeout(() => {
+            if (factWasHard) {
+              setStoryPrompt({ factId: current.factId, question: current.question });
+              setStoryDraft('');
+              setPatrol({ ...updatedPatrol, currentIdx: nextIdx, _pendingResume: true });
+              setAnswerInput(''); setFeedback(null); setShowHint(false); setShowStrategy(false);
+            } else if (nextIdx >= patrol.problems.length) {
+              finishPatrol(updatedPatrol.correct, updatedPatrol.rewards);
+            } else {
+              setPatrol({ ...updatedPatrol, currentIdx: nextIdx });
+              setAnswerInput(''); setFeedback(null); setShowHint(false); setShowStrategy(false);
+              setProblemStartedAt(Date.now());
+            }
+          }, 1500);
+        } else {
+          if (patrol.attempts >= 1) {
+            await recordSR(false);
+            setFeedback({ type: 'reveal', text: `${pick(REVEAL_LINES)} The answer was ${current.answer}.` });
+            const nextIdx = patrol.currentIdx + 1;
+            setTimeout(() => {
+              if (nextIdx >= patrol.problems.length) {
+                finishPatrol(patrol.correct, patrol.rewards);
+              } else {
+                setPatrol({ ...patrol, currentIdx: nextIdx, attempts: 0 });
+                setAnswerInput(''); setFeedback(null); setShowHint(false); setShowStrategy(false);
+                setProblemStartedAt(Date.now());
+              }
+            }, 2400);
+          } else {
+            setPatrol({ ...patrol, attempts: patrol.attempts + 1 });
+            setFeedback({ type: 'try_again', text: 'Not quite. Try again.' });
+            setShowStrategy(!!current.factId);
+            setAnswerInput('');
+          }
+        }
+      }}
+      onQuit={() => setView('den')}
+    />;
+  }
+
+  if (view === 'complete') {
+    return <CompleteView
+      profile={profile}
+      patrol={patrol}
+      onReturn={() => { setPatrol(null); setView('den'); }}
+    />;
+  }
+
+  return null;
+}
+
+// Build the per-problem reward based on patrol kind.
+function buildCorrectReward(patrolType, profile) {
+  if (patrolType.reward === 'prey') {
+    const veryEarly = (profile.totalCorrect || 0) < 8;
+    const prey = weightedPick(veryEarly ? PREY_EARLY : PREY_COMMON);
+    return { kind: 'prey', prey, flavor: pick(PREY_FLAVOR) };
+  }
+  if (patrolType.reward === 'herb') {
+    const herb = pick(HERBS).name;
+    return { kind: 'herb', herb, flavor: pick(HERB_FLAVOR) };
+  }
+  if (patrolType.reward === 'border') {
+    return { kind: 'border', flavor: pick(BORDER_FLAVOR) };
+  }
+  if (patrolType.reward === 'training') {
+    return { kind: 'training', flavor: pick(TRAINING_FLAVOR) };
+  }
+  return { kind: 'none', flavor: '' };
+}

@@ -143,3 +143,78 @@ Currently text-heavy. Add in priority order:
 3. Implement minimum-viable change. No feature creep.
 4. Preserve save compatibility. If breaking, write a migration.
 5. Test the lore with her. She will tell you if you got it wrong.
+
+## Repo + deploy layout
+
+- Source of truth: `src/` (multi-file as of v15a). Layout details in `src/README-DEV.md`.
+  - `src/App.jsx` is the top-level component.
+  - `src/data/`, `src/engine/`, `src/storage/`, `src/components/{views,art,shared}/`.
+- `warriors-path.jsx` at the repo root is a thin re-export shim. Don't add new code there.
+- Build: `npm run dev` (local), `npm run build` (produces `dist/`, ~228KB static).
+- Save files (`*-save.json`) are personal data and `.gitignore`d. They live
+  only on the player's machine + (optionally) on the VPS at
+  `/srv/warriors-path-saves/`. Never commit a save file.
+
+## When running Claude Code ON THE VPS
+
+If a Claude Code instance is launched on the VPS itself (e.g. for ops tasks
+like pulling, building, restarting Caddy), follow these rules. THEY ARE NOT
+NEGOTIABLE.
+
+### What you may do
+
+- `cd /srv/warriors-path-src/` (the git checkout) and run:
+  - `git fetch origin && git pull --ff-only origin main`
+  - `npm ci` and `npm run build`
+  - `rsync -av --delete dist/ /srv/warriors-path/` (build output only)
+  - `caddy reload` (only if a config change was made and reviewed)
+- Read `/var/log/caddy/*` to diagnose serving issues.
+- Read `git log`, `git status`, etc. for context.
+
+### What you must NEVER do
+
+- **Never run as root.** If the prompt says you're `root`, stop and explain
+  the user must `su - warriors` (or equivalent unprivileged user) first.
+- **Never `rm -rf` outside `/srv/warriors-path/`** — and even there, prefer
+  `rsync --delete` over `rm`. Specifically:
+  - Never touch `/srv/warriors-path-saves/`. Those are the player's files.
+  - Never touch `/home/`, `/etc/`, `/var/`, `/root/`, `/opt/`, `/usr/`, or
+    any other system directory.
+- **Never edit `/etc/caddy/Caddyfile`** without showing the user the diff
+  and getting explicit confirmation.
+- **Never run `apt-get`, `npm install -g`, `systemctl`, `useradd`,
+  `passwd`, or anything else that mutates the OS** without explicit user
+  confirmation per command.
+- **Never `git push --force` to main.** Never push directly to main at all
+  — open a PR.
+- **Never disable hooks (`--no-verify`), CI, or signing.**
+- **Never write secrets to disk.** No `.env` files, no API keys, no SSH
+  keys committed. The deploy SSH key already exists on the VPS at
+  `/home/warriors/.ssh/deploy` and is GitHub's secret — leave it alone.
+- **Never read `/srv/warriors-path-saves/*.json`.** These are the player's
+  private data. If the user asks for help with a save, the user can paste
+  it into the conversation themselves.
+
+### When the user asks you to "deploy" on the VPS
+
+Walk them through a manual deploy unless the GitHub Action is set up:
+
+```bash
+# As the `warriors` user, in /srv/warriors-path-src/
+git pull --ff-only origin main
+npm ci
+npm run build
+rsync -av --delete dist/ /srv/warriors-path/
+```
+
+No Caddy restart is needed — Caddy serves files from disk, picks up changes
+immediately. If the iPad shows a stale version, instruct them to force-quit
+the home-screen icon and reopen.
+
+### When the user reports the site is broken
+
+1. Read the latest Caddy access/error log (`journalctl -u caddy -n 100`).
+2. `ls /srv/warriors-path/` — verify `index.html` and `assets/` exist.
+3. `curl -I https://<their-domain>/` — verify 200.
+4. If the build is broken, check out the previous commit and rebuild.
+   Don't try to "fix forward" without showing the user the diagnosis first.
