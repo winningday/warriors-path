@@ -9,10 +9,10 @@ import React, { useState, useEffect } from 'react';
 // ============ GAME DATA ============
 
 const CLANS = [
-  { name: 'ThunderClan', accent: '#d97642', desc: 'Brave cats of the forest' },
-  { name: 'ShadowClan', accent: '#8b7aa8', desc: 'Cunning cats of the shadowed pines' },
-  { name: 'RiverClan',  accent: '#6891a8', desc: 'Sleek cats of the river and reeds' },
-  { name: 'WindClan',   accent: '#b8a165', desc: 'Swift cats of the open moor' },
+  { name: 'ThunderClan', accent: '#e2ec70', desc: 'Brave cats of the forest' },
+  { name: 'ShadowClan', accent: '#1b1480', desc: 'Cunning cats of the shadowed pines' },
+  { name: 'RiverClan',  accent: '#4ba4d8', desc: 'Sleek cats of the river and reeds' },
+  { name: 'WindClan',   accent: '#66b366', desc: 'Swift cats of the open moor' },
 ];
 
 const FUR_COLORS = ['Black', 'Grey', 'White', 'Tabby', 'Ginger', 'Calico', 'Tortoiseshell'];
@@ -45,35 +45,52 @@ const PATROLS = [
 ];
 
 // Rank ladders by path. Apprentices and kits do not have a chosen suffix.
+//
+// Promotion model:
+//   - `min`         is the volume threshold to even be ELIGIBLE.
+//   - `auto: true`  promotes the moment min is reached (apprentice → young warrior, warrior, etc).
+//   - `auto: false` is leader's choice (Deputy) or fate (Leader): once eligible, each completed patrol
+//                   has a small chance to trigger the ceremony. The story reason makes the chance gate
+//                   feel right — the leader picks her deputy when she sees fit, and a new leader is named
+//                   only when StarClan calls the old one home.
 const RANKS_WARRIOR = [
-  { name: 'Apprentice',     min: 0   },
-  { name: 'Young Warrior',  min: 60  }, // warrior ceremony — pick suffix
-  { name: 'Warrior',        min: 150 },
-  { name: 'Deputy',         min: 280 },
-  { name: 'Leader',         min: 420 }, // suffix becomes -star
+  { name: 'Apprentice',     min: 0,   auto: true  },
+  { name: 'Young Warrior',  min: 60,  auto: true  }, // warrior ceremony — pick suffix
+  { name: 'Warrior',        min: 150, auto: true  },
+  { name: 'Deputy',         min: 280, auto: false }, // leader chooses her new deputy
+  { name: 'Leader',         min: 420, auto: false }, // previous leader goes to StarClan
 ];
 const RANKS_MEDICINE = [
-  { name: 'Medicine Cat Apprentice',  min: 0   },
-  { name: 'Medicine Cat',             min: 60  }, // medicine-cat ceremony — pick suffix
-  { name: 'Senior Medicine Cat',      min: 200 },
+  { name: 'Medicine Cat Apprentice',  min: 0,   auto: true },
+  { name: 'Medicine Cat',             min: 60,  auto: true }, // medicine-cat ceremony — pick suffix
+  { name: 'Senior Medicine Cat',      min: 200, auto: true },
 ];
+
+// Per-patrol probability that an eligible chance-based promotion fires.
+// Tuned so reaching Deputy/Leader takes many sessions of play, not just hitting the threshold.
+const CHANCE_PROMOTION_PER_PATROL = 0.12;
 
 const PATH_WARRIOR = 'warrior';
 const PATH_MEDICINE = 'medicine_cat';
 
 const ranksFor = (path) => (path === PATH_MEDICINE ? RANKS_MEDICINE : RANKS_WARRIOR);
 
-// Prey table. Hawks NOT included (they are predators of cats). Mice/voles/squirrels are the common forest prey.
+// Prey table. Mice/voles/squirrels are the common forest prey. Birds add variety. Hawks are rare and dangerous —
+// cats sometimes hunt them but it's not the usual catch.
 const PREY_COMMON = [
-  { name: 'mouse',    weight: 8 },
-  { name: 'vole',     weight: 7 },
-  { name: 'squirrel', weight: 6 },
-  { name: 'sparrow',  weight: 4 },
-  { name: 'thrush',   weight: 3 },
-  { name: 'blackbird',weight: 3 },
-  { name: 'starling', weight: 2 },
-  { name: 'rabbit',   weight: 2 },
-  { name: 'frog',     weight: 1 },
+  { name: 'mouse',     weight: 8 },
+  { name: 'vole',      weight: 7 },
+  { name: 'squirrel',  weight: 6 },
+  { name: 'sparrow',   weight: 4 },
+  { name: 'thrush',    weight: 3 },
+  { name: 'blackbird', weight: 3 },
+  { name: 'starling',  weight: 2 },
+  { name: 'robin',     weight: 2 },
+  { name: 'wren',      weight: 2 },
+  { name: 'finch',     weight: 2 },
+  { name: 'rabbit',    weight: 2 },
+  { name: 'frog',      weight: 1 },
+  { name: 'hawk',      weight: 1 }, // rare; "sometimes also hunt hawks" per daughter
 ];
 // First catches should be modest (per daughter): brand-new apprentices catch only the smallest things.
 const PREY_EARLY = [
@@ -125,6 +142,9 @@ const LOCATIONS_BY_CLAN = {
     { name: 'the Thunderpath edge',  scale: 'large'  },
     { name: 'the rotten stump',      scale: 'small'  },
     { name: 'Fourtrees',             scale: 'large'  },
+    { name: 'the bramble thicket',   scale: 'medium' },
+    { name: 'the dead oak',          scale: 'small'  },
+    { name: 'the shadow hollow',     scale: 'medium' },
   ],
   RiverClan: [
     { name: 'the reedbeds',          scale: 'medium' },
@@ -134,6 +154,9 @@ const LOCATIONS_BY_CLAN = {
     { name: 'the willow grove',      scale: 'medium' },
     { name: 'Fourtrees',             scale: 'large'  },
     { name: 'the stone island',      scale: 'small'  },
+    { name: 'the otter den',         scale: 'small'  },
+    { name: 'the fishing pool',      scale: 'medium' },
+    { name: 'the gorge',             scale: 'large'  },
   ],
   WindClan: [
     { name: 'the open moor',         scale: 'large'  },
@@ -143,6 +166,9 @@ const LOCATIONS_BY_CLAN = {
     { name: 'the stone hollow',      scale: 'small'  },
     { name: 'Fourtrees',             scale: 'large'  },
     { name: 'the high ridge',        scale: 'medium' },
+    { name: 'the heather field',     scale: 'large'  },
+    { name: 'the badger sett',       scale: 'small'  },
+    { name: 'the windswept ridge',   scale: 'medium' },
   ],
 };
 
@@ -451,14 +477,28 @@ const getRankInfo = (profile) => {
   };
 };
 
-// Determine which rank a totalCorrect should now be at — we promote if the player crosses the next threshold.
-const rankForCorrect = (path, totalCorrect) => {
+// Determine the highest rank the player has earned automatically (auto: true only).
+// Chance-based ranks (Deputy, Leader) are NOT included here — those are decided by rollEligibleChanceRank.
+const autoRankForCorrect = (path, totalCorrect) => {
   const ladder = ranksFor(path);
   let current = ladder[0];
   for (const r of ladder) {
-    if (totalCorrect >= r.min) current = r;
+    if (r.auto && totalCorrect >= r.min) current = r;
   }
   return current.name;
+};
+
+// If the player is currently at the highest auto-rank, check whether a chance-based promotion is now eligible.
+// Returns the new rank name to promote to, or null. Each call rolls the dice once.
+const rollEligibleChanceRank = (profile) => {
+  const ladder = ranksFor(profile.path);
+  const idx = ladder.findIndex((r) => r.name === profile.rank);
+  if (idx < 0 || idx >= ladder.length - 1) return null;
+  const next = ladder[idx + 1];
+  if (next.auto) return null;                          // not a chance promotion
+  if (profile.totalCorrect < next.min) return null;    // not yet eligible
+  if (Math.random() < CHANCE_PROMOTION_PER_PATROL) return next.name;
+  return null;
 };
 
 const getFullName = (profile) => {
@@ -851,19 +891,36 @@ export default function WarriorsPath() {
       };
       rewards.prey.forEach((x) => { next.preyCaught[x] = (next.preyCaught[x] || 0) + 1; });
       rewards.herbs.forEach((x) => { next.herbsCaught[x] = (next.herbsCaught[x] || 0) + 1; });
-      // Rank promotion via threshold cross.
-      const newRankName = rankForCorrect(p.path, next.totalCorrect);
-      next._rankUp = newRankName !== p.rank;
+
+      // Step 1: auto-rank promotions (Apprentice→Young Warrior→Warrior, or Med Apprentice→Med Cat→Senior).
+      const autoRank = autoRankForCorrect(p.path, next.totalCorrect);
+      let newRank = autoRank;
+
+      // Step 2: chance-based promotions (Deputy / Leader). Only roll if the auto-rank kept us at the
+      // highest auto step — i.e. we're a Warrior eyeing Deputy, or a Deputy eyeing Leader.
+      const chancePick = rollEligibleChanceRank({ ...next, rank: newRank });
+      if (chancePick) newRank = chancePick;
+
+      next._rankUp = newRank !== p.rank;
       next._previousRank = p.rank;
-      next.rank = newRankName;
+      next.rank = newRank;
+
+      // When promoted to Leader, the suffix becomes -star (book canon). Stash the old suffix so
+      // the leader-ceremony view can render the "you are no longer X" line.
+      if (next.rank === 'Leader' && p.rank !== 'Leader') {
+        next._oldSuffix = p.suffix;
+        next.suffix = 'star';
+      }
       return next;
     });
 
-    // If the new rank requires a name ceremony, route there.
+    // Route to the appropriate ceremony view if this rank-up calls for one.
     if (updated && updated._rankUp) {
       const r = updated.rank;
-      if (r === 'Young Warrior') { setPendingCeremony('warrior'); setView('name_ceremony'); return; }
+      if (r === 'Young Warrior') { setPendingCeremony('warrior');  setView('name_ceremony'); return; }
       if (r === 'Medicine Cat')  { setPendingCeremony('medicine'); setView('name_ceremony'); return; }
+      if (r === 'Deputy')        { setView('deputy_ceremony'); return; }
+      if (r === 'Leader')        { setView('leader_ceremony'); return; }
     }
     setView('complete');
   };
@@ -970,6 +1027,14 @@ export default function WarriorsPath() {
         setView('complete');
       }}
     />;
+  }
+
+  if (view === 'deputy_ceremony') {
+    return <DeputyCeremony profile={profile} onContinue={() => setView('complete')} />;
+  }
+
+  if (view === 'leader_ceremony') {
+    return <LeaderCeremony profile={profile} onContinue={() => setView('complete')} />;
   }
 
   if (view === 'den') {
@@ -1320,8 +1385,80 @@ const ApprenticeCeremony = ({ profile, onComplete }) => {
   const medCat = MEDICINE_CATS_BY_CLAN[profile.clan];
   const medOpening = profile.medCatOpening !== false;
 
-  const [path, setPath] = useState(PATH_WARRIOR);
+  // Three steps so the medicine-cat path is something you ASK FOR, not just a button:
+  //   'choose'  — do you want to ask the medicine cat to be your mentor?
+  //   'asking'  — you walk to the medicine cat den and speak.
+  //   (then onComplete fires)
+  const [step, setStep] = useState('choose');
+  const [intent, setIntent] = useState(null); // 'warrior' | 'ask_medicine'
 
+  if (step === 'asking') {
+    return (
+      <div style={styles.root}>
+        <FontLoader />
+        <div style={{ maxWidth: 560, margin: '0 auto', padding: '32px 12px' }}>
+          <div style={{ textAlign: 'center', marginBottom: 22 }}>
+            <div style={{ fontSize: 10, letterSpacing: '0.4em', color: '#7a8571', marginBottom: 10, ...styles.display }}>
+              THE MEDICINE CAT'S DEN
+            </div>
+            <h2 style={{ ...styles.display, fontSize: 22, margin: 0, color: clan.accent, fontWeight: 600 }}>
+              YOU ASK FOR A MENTOR
+            </h2>
+          </div>
+
+          <div style={panel}>
+            <p style={{ margin: 0, fontSize: 16, lineHeight: 1.7, color: '#c8c0a8', fontStyle: 'italic' }}>
+              You slip past the bramble screen into the medicine cat den. The smell of herbs is sharp and green. <strong style={{ color: clan.accent, fontStyle: 'normal' }}>{medCat}</strong> looks up from sorting leaves.
+            </p>
+            <p style={{ margin: '14px 0 0', fontSize: 16, lineHeight: 1.7, color: '#c8c0a8' }}>
+              "<em>{medCat}, I want to be a medicine cat. Will you take me as your apprentice?</em>"
+            </p>
+            {medOpening ? (
+              <>
+                <p style={{ margin: '14px 0 0', fontSize: 16, lineHeight: 1.7, color: '#c8c0a8' }}>
+                  {medCat} studies you a long moment. Then she dips her head.
+                </p>
+                <p style={{ margin: '14px 0 0', fontSize: 16, lineHeight: 1.7, color: '#c8c0a8', fontStyle: 'italic' }}>
+                  "<em>I have no apprentice. StarClan has not sent me one — perhaps until now. If your heart is set on this path, I will speak to {leader}.</em>"
+                </p>
+                <p style={{ margin: '14px 0 0', fontSize: 14, lineHeight: 1.7, color: '#a39d88' }}>
+                  At the next ceremony, the leader announces a different name for you: not warrior apprentice, but medicine cat apprentice. {medCat} will be your mentor.
+                </p>
+              </>
+            ) : (
+              <>
+                <p style={{ margin: '14px 0 0', fontSize: 16, lineHeight: 1.7, color: '#c8c0a8' }}>
+                  {medCat} sighs, kindly.
+                </p>
+                <p style={{ margin: '14px 0 0', fontSize: 16, lineHeight: 1.7, color: '#c8c0a8', fontStyle: 'italic' }}>
+                  "<em>I already have an apprentice this season. There is only ever one. But your heart is good, little one — go and learn the warrior way. The Clan needs every kind of cat.</em>"
+                </p>
+              </>
+            )}
+          </div>
+
+          {medOpening ? (
+            <button onClick={() => onComplete(PATH_MEDICINE)} style={btnPrimary(clan.accent)}>
+              ACCEPT THE PATH
+            </button>
+          ) : (
+            <button onClick={() => onComplete(PATH_WARRIOR)} style={btnPrimary(clan.accent)}>
+              RETURN TO THE CLEARING
+            </button>
+          )}
+          <button onClick={() => setStep('choose')} style={{
+            width: '100%', background: 'transparent', border: 'none', color: '#5a6155',
+            fontSize: 11, marginTop: 6, cursor: 'pointer', textDecoration: 'underline',
+            fontFamily: "'Crimson Text', serif", letterSpacing: '0.1em',
+          }}>
+            back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // 'choose' step
   return (
     <div style={styles.root}>
       <FontLoader />
@@ -1342,57 +1479,53 @@ const ApprenticeCeremony = ({ profile, onComplete }) => {
           <p style={{ margin: '14px 0 0', fontSize: 16, lineHeight: 1.7, color: '#c8c0a8' }}>
             "<em>{profile.prefix}kit, you have reached six moons. From this day forward, until you have earned your warrior name, you will be known as <strong style={{ color: clan.accent }}>{profile.prefix}paw</strong>.</em>"
           </p>
+          <p style={{ margin: '14px 0 0', fontSize: 14, lineHeight: 1.7, color: '#a39d88' }}>
+            Before the leader names your mentor, you have a choice. Most apprentices become warrior apprentices. A rare few feel called to walk the medicine cat's path — but they must ask the medicine cat themselves.
+          </p>
         </div>
 
         <div style={panel}>
-          <label style={labelStyle}>WHICH PATH?</label>
-          <button onClick={() => setPath(PATH_WARRIOR)} style={{
+          <label style={labelStyle}>WHAT IS IN YOUR HEART?</label>
+          <button onClick={() => setIntent('warrior')} style={{
             ...pathChoiceStyle,
-            borderColor: path === PATH_WARRIOR ? clan.accent : '#3a4339',
-            background: path === PATH_WARRIOR ? 'rgba(217, 118, 66, 0.08)' : 'transparent',
+            borderColor: intent === 'warrior' ? clan.accent : '#3a4339',
+            background: intent === 'warrior' ? 'rgba(217, 118, 66, 0.08)' : 'transparent',
           }}>
             <div style={{ ...styles.display, fontSize: 13, letterSpacing: '0.18em', color: clan.accent, fontWeight: 700 }}>
-              WARRIOR APPRENTICE
+              I WILL BE A WARRIOR
             </div>
             <div style={{ fontSize: 13, color: '#c8c0a8', marginTop: 6, lineHeight: 1.5 }}>
-              "<em>{possibleMentor}, you will mentor {profile.prefix}paw. Pass on all you know.</em>"
+              "<em>{possibleMentor}, you are ready for an apprentice. You will mentor {profile.prefix}paw. Pass on all you know.</em>"
             </div>
             <div style={{ fontSize: 12, color: '#7a8571', marginTop: 8, fontStyle: 'italic' }}>
-              Train with {possibleMentor}. Walk the borders. Hunt for the Clan. Earn your warrior name.
+              Train with {possibleMentor}. Hunt for the Clan. Walk the borders. Earn your warrior name.
             </div>
           </button>
-          <button
-            onClick={() => medOpening && setPath(PATH_MEDICINE)}
-            disabled={!medOpening}
-            style={{
-              ...pathChoiceStyle,
-              opacity: medOpening ? 1 : 0.45,
-              cursor: medOpening ? 'pointer' : 'not-allowed',
-              borderColor: path === PATH_MEDICINE ? clan.accent : '#3a4339',
-              background: path === PATH_MEDICINE ? 'rgba(217, 118, 66, 0.08)' : 'transparent',
-            }}>
+          <button onClick={() => setIntent('ask_medicine')} style={{
+            ...pathChoiceStyle,
+            borderColor: intent === 'ask_medicine' ? clan.accent : '#3a4339',
+            background: intent === 'ask_medicine' ? 'rgba(217, 118, 66, 0.08)' : 'transparent',
+          }}>
             <div style={{ ...styles.display, fontSize: 13, letterSpacing: '0.18em', color: clan.accent, fontWeight: 700 }}>
-              MEDICINE CAT APPRENTICE
+              I WILL ASK {medCat.toUpperCase()}
             </div>
-            {medOpening ? (
-              <>
-                <div style={{ fontSize: 13, color: '#c8c0a8', marginTop: 6, lineHeight: 1.5 }}>
-                  "<em>{medCat} has agreed to take {profile.prefix}paw as a medicine cat apprentice. May StarClan light their path.</em>"
-                </div>
-                <div style={{ fontSize: 12, color: '#7a8571', marginTop: 8, fontStyle: 'italic' }}>
-                  Learn the herbs. Tend the wounded. Walk between StarClan and your Clan. (Cannot become Deputy or Leader.)
-                </div>
-              </>
-            ) : (
-              <div style={{ fontSize: 12, color: '#a39d88', marginTop: 8, fontStyle: 'italic', lineHeight: 1.5 }}>
-                {medCat} already has an apprentice. There is no place for another medicine cat in {profile.clan} this season.
-              </div>
-            )}
+            <div style={{ fontSize: 13, color: '#c8c0a8', marginTop: 6, lineHeight: 1.5 }}>
+              You leave the clearing and pad to the medicine cat den to ask {medCat} to take you as her apprentice.
+            </div>
+            <div style={{ fontSize: 12, color: '#7a8571', marginTop: 8, fontStyle: 'italic' }}>
+              Whether she says yes depends on whether she already has an apprentice. (Medicine cats cannot become Deputy or Leader.)
+            </div>
           </button>
         </div>
 
-        <button onClick={() => onComplete(path)} style={btnPrimary(clan.accent)}>
-          ACCEPT THE NAME
+        <button
+          onClick={() => {
+            if (intent === 'warrior') onComplete(PATH_WARRIOR);
+            else if (intent === 'ask_medicine') setStep('asking');
+          }}
+          disabled={!intent}
+          style={{ ...btnPrimary(clan.accent), opacity: intent ? 1 : 0.45, cursor: intent ? 'pointer' : 'not-allowed' }}>
+          {intent === 'ask_medicine' ? 'GO TO THE MEDICINE DEN' : 'ACCEPT THE NAME'}
         </button>
       </div>
     </div>
@@ -1486,6 +1619,115 @@ const NameCeremony = ({ profile, ceremony, onComplete }) => {
 
         <button onClick={() => onComplete(finalSuffix)} disabled={!finalSuffix} style={btnPrimary(clan.accent)}>
           TAKE YOUR NAME
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ============ DEPUTY CEREMONY ============
+// Per book canon: the leader names her own deputy, traditionally before moonhigh on the night of
+// a deputy's death or retirement. Here, once the warrior has earned eligibility (≥280 correct),
+// any patrol can be the one where the leader calls them up.
+
+const DeputyCeremony = ({ profile, onContinue }) => {
+  const clan = CLANS.find((c) => c.name === profile.clan);
+  const leader = LEADERS_BY_CLAN[profile.clan];
+  const fullName = getFullName(profile);
+
+  return (
+    <div style={styles.root}>
+      <FontLoader />
+      <div style={{ maxWidth: 560, margin: '0 auto', padding: '40px 12px' }}>
+        <div style={{ textAlign: 'center', marginBottom: 22 }}>
+          <div style={{ fontSize: 10, letterSpacing: '0.4em', color: '#7a8571', marginBottom: 10, ...styles.display }}>
+            DEPUTY CEREMONY
+          </div>
+          <h2 style={{ ...styles.display, fontSize: 24, margin: 0, color: clan.accent, fontWeight: 600 }}>
+            BEFORE MOONHIGH
+          </h2>
+        </div>
+
+        <div style={panel}>
+          <p style={{ margin: 0, fontSize: 16, lineHeight: 1.7, color: '#c8c0a8', fontStyle: 'italic' }}>
+            <strong style={{ color: clan.accent, fontStyle: 'normal' }}>{leader}</strong> stands on the Highrock as the moon climbs. The Clan gathers below, expectant. The previous deputy has stepped aside.
+          </p>
+          <p style={{ margin: '14px 0 0', fontSize: 16, lineHeight: 1.7, color: '#c8c0a8' }}>
+            "<em>I say these words before StarClan, that the spirits of our ancestors may hear and approve my choice.</em>"
+          </p>
+          <p style={{ margin: '14px 0 0', fontSize: 16, lineHeight: 1.7, color: '#c8c0a8' }}>
+            "<em><strong style={{ color: clan.accent, fontStyle: 'normal' }}>{fullName}</strong>, do you accept the duty of deputy — to serve {profile.clan}, to protect every cat from kit to elder, and to stand at my side for as long as you live?</em>"
+          </p>
+          <p style={{ margin: '14px 0 0', fontSize: 16, lineHeight: 1.7, color: '#c8c0a8' }}>
+            "<em>I do.</em>"
+          </p>
+          <p style={{ margin: '14px 0 0', fontSize: 16, lineHeight: 1.7, color: '#c8c0a8' }}>
+            "<em>Then from this moment, {fullName} will be the new deputy of {profile.clan}. May StarClan watch over your every step.</em>"
+          </p>
+          <p style={{ margin: '14px 0 0', fontSize: 14, lineHeight: 1.7, color: '#a39d88' }}>
+            The Clan murmurs your name in approval. You dip your head to {leader}, then to your Clanmates. From this night, you stand at the leader's side.
+          </p>
+        </div>
+
+        <button onClick={onContinue} style={btnPrimary(clan.accent)}>
+          I DO. I ACCEPT.
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ============ LEADER CEREMONY ============
+// Per book canon: leaders are not chosen by play, but by fate. When the previous leader goes to
+// StarClan (or steps aside), the deputy travels to the Moonstone and receives nine lives. The
+// suffix becomes -star at this moment.
+
+const LeaderCeremony = ({ profile, onContinue }) => {
+  const clan = CLANS.find((c) => c.name === profile.clan);
+  const oldLeader = LEADERS_BY_CLAN[profile.clan];
+  const medCat = MEDICINE_CATS_BY_CLAN[profile.clan];
+  const fullName = getFullName(profile); // already has -star applied in finishPatrol
+  const oldName = profile.prefix + (profile._oldSuffix || 'foot');
+
+  return (
+    <div style={styles.root}>
+      <FontLoader />
+      <div style={{ maxWidth: 560, margin: '0 auto', padding: '40px 12px' }}>
+        <div style={{ textAlign: 'center', marginBottom: 22 }}>
+          <div style={{ fontSize: 10, letterSpacing: '0.4em', color: '#7a8571', marginBottom: 10, ...styles.display }}>
+            LEADER CEREMONY · AT THE MOONSTONE
+          </div>
+          <h2 style={{ ...styles.display, fontSize: 22, margin: 0, color: clan.accent, fontWeight: 600 }}>
+            NINE LIVES BY MOONLIGHT
+          </h2>
+        </div>
+
+        <div style={panel}>
+          <p style={{ margin: 0, fontSize: 16, lineHeight: 1.7, color: '#c8c0a8', fontStyle: 'italic' }}>
+            <strong style={{ color: clan.accent, fontStyle: 'normal' }}>{oldLeader}</strong> has gone to walk with StarClan. The Clan grieves, but the Clan endures. As the deputy, you must travel to the Moonstone — and you do not go alone. <strong style={{ color: clan.accent, fontStyle: 'normal' }}>{medCat}</strong>, the medicine cat, walks at your side to guide you. She has spoken to StarClan many times. Tonight, she will help you speak to them for the first time.
+          </p>
+          <p style={{ margin: '14px 0 0', fontSize: 16, lineHeight: 1.7, color: '#c8c0a8' }}>
+            You travel through the night together. At the cave, {medCat} dips her head and tells you what to do.
+          </p>
+          <p style={{ margin: '14px 0 0', fontSize: 16, lineHeight: 1.7, color: '#c8c0a8', fontStyle: 'italic' }}>
+            "<em>Lie down. Press your nose to the stone. Sleep, and they will come.</em>"
+          </p>
+          <p style={{ margin: '14px 0 0', fontSize: 16, lineHeight: 1.7, color: '#c8c0a8' }}>
+            You press your nose to the cold stone. The cave fills with starlight. One by one, nine of your warrior ancestors come forward, each giving you a life and the strength to use it well. {medCat} watches in silence, guarding your sleeping body until you wake.
+          </p>
+          <p style={{ margin: '14px 0 0', fontSize: 16, lineHeight: 1.7, color: '#c8c0a8' }}>
+            "<em>You are no longer {oldName}. From this moment you will be known as <strong style={{ color: clan.accent, fontStyle: 'normal' }}>{fullName}</strong>, leader of {profile.clan}. StarClan honors your courage and your loyalty.</em>"
+          </p>
+          <p style={{ margin: '14px 0 0', fontSize: 14, lineHeight: 1.7, color: '#a39d88' }}>
+            You wake at the Moonstone with nine lives in your chest. {medCat} touches her nose to your shoulder and walks you home through the dawn. When the Clan sees you, they raise their voices: <em>{fullName}! {fullName}!</em>
+          </p>
+          <p style={{ margin: '14px 0 0', fontSize: 14, lineHeight: 1.7, color: '#a39d88', fontStyle: 'italic' }}>
+            (Your first task as leader will be to name your own deputy — but that is for another night.)
+          </p>
+        </div>
+
+        <button onClick={onContinue} style={btnPrimary(clan.accent)}>
+          RETURN TO YOUR CLAN
         </button>
       </div>
     </div>
