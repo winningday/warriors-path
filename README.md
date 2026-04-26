@@ -10,7 +10,7 @@
   <a href="https://github.com/winningday/warriors-path/network/members"><img src="https://img.shields.io/github/forks/winningday/warriors-path?style=for-the-badge&color=8fc28a&logo=github&logoColor=0a0f0a" alt="Forks"></a>
   <a href="https://github.com/winningday/warriors-path/issues"><img src="https://img.shields.io/github/issues/winningday/warriors-path?style=for-the-badge&color=a78bd9&logo=github&logoColor=0a0f0a" alt="Issues"></a>
   <a href="https://github.com/winningday/warriors-path/actions/workflows/deploy.yml"><img src="https://img.shields.io/github/actions/workflow/status/winningday/warriors-path/deploy.yml?style=for-the-badge&color=4ba4d8&label=deploy&logo=github&logoColor=0a0f0a" alt="Deploy"></a>
-  <a href="https://github.com/winningday/warriors-path/blob/main/LICENSE"><img src="https://img.shields.io/github/license/winningday/warriors-path?style=for-the-badge&color=c8c0a8" alt="License"></a>
+  <a href="https://github.com/winningday/warriors-path/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-PolyForm%20Noncommercial-c8c0a8?style=for-the-badge" alt="License: PolyForm Noncommercial"></a>
 </p>
 
 <p align="center">
@@ -232,9 +232,11 @@ If you fork this for your own family's use:
 2. **Replace `winningday` in the README badges** with your own GitHub
    username so the shields show your repo's stats.
 3. **Optionally rename the project** (e.g., your kid's flavor — "Dragon's
-   Hoard" for a kid who likes dragons). Keep the lore-respect notice in
-   `LICENSE` and `NOTICE` even if you keep the Warriors theme — see the
-   [License section](#license) below.
+   Hoard" for a kid who likes dragons). Keep the PolyForm Noncommercial
+   license — that's the rule that lets us all share without anyone walking
+   off with the work. If you re-theme away from Warriors, you can drop the
+   third-party-IP NOTICE block; if you keep the Warriors theme, keep the
+   NOTICE — see the [License section](#license) below.
 4. **Customize `DAUGHTER_NOTES.md`** to track your own kid's feedback;
    delete the existing entries and start fresh.
 5. **Adjust math content** in `src/data/` — flavor pools, prey list, herbs,
@@ -381,29 +383,61 @@ in `sample-save.example.json` is fictional.
 
 ## License
 
-The original code, documentation, and assets in this repository are released
-under the **[MIT License](./LICENSE)**. You may freely use, modify,
-distribute, and even commercialize the code — as long as you keep the
-copyright notice and license text intact in your derivative.
+This project is released under the **[PolyForm Noncommercial License
+1.0.0](./LICENSE)** — a source-available license written by software
+lawyers ([polyformproject.org](https://polyformproject.org/licenses/noncommercial/1.0.0/))
+that's permissive for personal, educational, and noncommercial use, but
+explicitly disallows commercial use.
 
-**The _Warriors_ book series, its Clan names, characters, terminology, and
-worldbuilding are © Erin Hunter (Working Partners) and HarperCollins.** They
-are referenced here for thematic and educational purposes under fair use
-for personal/family/non-commercial fan work. The MIT license on this
-repository **does not and cannot grant rights to that third-party
-intellectual property** — see the NOTICE block at the bottom of the
-[LICENSE](./LICENSE) file for details.
+### What you CAN do under this license
 
-If you fork this for your own family's use, the same posture applies. If
-you intend to distribute or commercialize a derivative, please respect
-the source material:
+- ✅ **Fork, clone, and read the code.** It's all public.
+- ✅ **Run your own copy** for your family, your kid, your classroom, your
+  homeschool co-op, your nonprofit, your library, etc.
+- ✅ **Modify the code, change the lore, swap themes, add features.** Your
+  fork is yours to evolve for your own noncommercial use.
+- ✅ **Share modifications with the community** as another noncommercial
+  fork, as long as the noncommercial terms travel with it.
+- ✅ **Use it for research, teaching, hobby projects, or personal study.**
 
-- Keep the fan-work / personal-use framing clear in your own README.
-- Don't use the "Warriors" name or marks in your project's name or marketing.
-- Be prepared to take it down promptly if asked by the rights holders.
+### What you CANNOT do under this license
+
+- ❌ **Sell it.** No paid app, no subscription service, no in-app purchases,
+  no commercial SaaS hosting.
+- ❌ **Bundle it into a commercial product.** A for-profit edtech company
+  can't use this code as part of their offering.
+- ❌ **Re-license it under a more permissive license** (you can't strip the
+  noncommercial requirement).
+
+If you want to use the code commercially, contact the copyright holder
+through a GitHub issue at
+[github.com/winningday/warriors-path/issues](https://github.com/winningday/warriors-path/issues)
+to discuss a separate commercial license.
+
+### About the Warrior Cats world
+
+**The _Warriors_ book series — its Clan names, characters, terminology, and
+worldbuilding — are © Erin Hunter (Working Partners) and HarperCollins.**
+They are referenced here for thematic and educational purposes as an
+unofficial fan work. The PolyForm license on this repository **does not and
+cannot grant rights to that third-party intellectual property** — see the
+NOTICE block at the bottom of the [LICENSE](./LICENSE) file for details.
+
+If you fork this for your own family's use, the same fan-work posture
+applies. If you fork and re-theme it (e.g. dragons, space pirates, fairies),
+you can drop the Warriors references entirely and the lore-respect notice
+no longer applies to your fork — but the PolyForm noncommercial license
+still does.
 
 Erin Hunter, HarperCollins, and Working Partners have not endorsed or
 sponsored this project.
+
+> 🐾 **A note from the maintainer:** This game is being co-built by an
+> 8-year-old and her dad over what may turn into a multi-year project.
+> If we ever do work out a relationship with the rights holders to make
+> this an official offering, we want our family to have built that without
+> someone else having already commercialized our code. PolyForm
+> Noncommercial keeps that door open. Thank you for understanding.
 
 ---
 
