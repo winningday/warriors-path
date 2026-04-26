@@ -10,78 +10,76 @@ Each entry is dated. Closed entries (✓) have been addressed in code; open entr
 
 ### Lore corrections
 
-- ○ "Clan" should always be capitalized
-- ○ Phrase: "Keep the border scent fresh" (or similar) is the right framing for Border Patrol
-- ○ Kits do not train. Only apprentices train. Currently the game lets a kit-rank player do training patrols, which is wrong.
-- ○ The patrol is called **Herb Patrol**, not "Herb Gathering"
-- ○ WindClan does not "run the moor." Better: "swift cats of the open moor" or similar
-- ○ ShadowClan: change description. Try "cunning cats of the shadowed pines" or "cats of the secret pines"
-- ○ RiverClan: change description. Current "sleek swimmers of the reeds" is okay-ish but could be sharper
-- ○ "StarClan is watching" sounds creepy. In the books that phrasing is ominous. Use "StarClan walks with you," "StarClan lights your path," etc.
+- ✓ "Clan" should always be capitalized — *(v13)*
+- ✓ Phrase: "Keep the border scent fresh" (or similar) is the right framing for Border Patrol — *(v13: Border Patrol now this exact subtitle)*
+- ✓ Kits do not train. Only apprentices train. Currently the game lets a kit-rank player do training patrols, which is wrong. — *(v13: game starts AT apprentice ceremony, kits never play)*
+- ✓ The patrol is called **Herb Patrol**, not "Herb Gathering" — *(v13)*
+- ✓ WindClan does not "run the moor." Better: "swift cats of the open moor" or similar — *(v13: now "Swift cats of the open moor")*
+- ✓ ShadowClan: change description. Try "cunning cats of the shadowed pines" or "cats of the secret pines" — *(v13: "Cunning cats of the shadowed pines")*
+- ✓ RiverClan: change description. Current "sleek swimmers of the reeds" is okay-ish but could be sharper — *(v13: "Sleek cats of the river and reeds")*
+- ✓ "StarClan is watching" sounds creepy. In the books that phrasing is ominous. Use "StarClan walks with you," "StarClan lights your path," etc. — *(v13: all ominous phrasings replaced; "walks with you" / "lights your path" used in praise pool and ceremonies)*
 
 ### Naming ceremony bugs
 
-- ○ At naming ceremony, button should say "ENTER THE FOREST" (already does ✓ — verify still correct)
-- ○ Naming ceremony is currently confused. In the books:
-  - As a kit, the *mother* names you (not the player). Suffix: `-kit`
-  - Apprentice ceremony: leader changes suffix to `-paw`. Mentor assigned.
-  - Warrior ceremony: leader gives full warrior name. **Player picks the suffix** here.
-  - Currently the game asks for full custom prefix at the start, which doesn't fit the lore arc.
-- ○ Even though kit suffix shows `-kit` correctly, the current code still appends `-paw` somewhere visible — check rendering paths. Bug.
+- ✓ At naming ceremony, button should say "ENTER THE FOREST" — *(v13: still correct, verified)*
+- ✓ Naming ceremony arc — *(v13: full canonical arc shipped — mother names kit, leader gives -paw at apprentice ceremony with mentor assigned, leader gives full warrior name with PLAYER PICKING the suffix at warrior ceremony)*
+- ✓ Bug where -paw was appended even at kit rank — *(v13: rank-aware getFullName covers Kit/Apprentice/Leader/Warrior cases distinctly)*
 
 ### Promotion language
 
-- ○ Don't say "Promotion." Say **Ceremony**. (e.g., "Apprentice Ceremony," "Warrior Ceremony")
+- ✓ Don't say "Promotion." Say **Ceremony**. — *(v13: all rank-up banners and views now say "Ceremony" — Apprentice/Warrior/Medicine Cat/Deputy/Leader Ceremony)*
 
 ### Flavor text problems
 
-- ○ "The Clan grows stronger" appears every time prey is caught. Repetitive. Need a pool of 30+ varied lines.
-- ○ "Your mentor would be proud" implies the mentor isn't watching, or is dead. Wrong tone.
-- ○ All subtraction word problems use the same phrasing ("the fresh-kill pile had X, some was eaten, how many remain"). Need variety.
-- ○ Fraction problems are all "Leafpool gathered X, gave [fraction] to queens, how many." Need variety: different medicine cats, different recipients (elders, kits, queens, sick warrior), different herbs.
+- ✓ "The Clan grows stronger" appears every time prey is caught. Repetitive. Need a pool of 30+ varied lines. — *(v13: 32-line PREY_FLAVOR pool, plus 34 PRAISE, 32 BORDER, 32 HERB, 32 TRAINING, 32 REVEAL)*
+- ✓ "Your mentor would be proud" implies the mentor isn't watching, or is dead. Wrong tone. — *(v13: line removed; replaced with "Your mentor flicks her tail in approval" / "Your mentor watches and nods" etc.)*
+- ✓ All subtraction word problems use the same phrasing. Need variety. — *(v13: 4 "carry/share" templates for small subtraction; "moon-scale" framings for large numbers)*
+- ✓ Fraction problems all use "Leafpool... queens..." — *(v13: medicine cat varies by Clan, herb varies, recipient varies (queens/elders/apprentices/sick warrior/wounded patrol/kits/deputy/medicine cat den), 4 sentence templates)*
 
 ### Math problem realism
 
-- ○ Hunting word problem: "Two patrols return with prey, count them all" — wrong. Only one patrol returns at a time. Also numbers like 87+47 are unrealistic for prey count.
-- ○ "Fresh-kill pile had X, some was eaten, how many remain" — cats hunt and eat soon after; they don't stockpile and slowly deplete. Reframe.
-- ○ Numbers in word problems should match story scale: small numbers for single patrols, larger numbers only for "the whole Clan over a moon" framings.
+- ✓ "Two patrols return with prey, count them all" — wrong. — *(v13: removed; small adds now framed as one patrol's catch + a patrol-mate's catch, or morning/afternoon catches)*
+- ✓ "Fresh-kill pile had X, some was eaten, how many remain" — — *(v13: removed; subtraction now framed as carrying/sharing within a single trip, or moon-scale Clan accounting)*
+- ✓ Numbers in word problems should match story scale — *(v13: small numbers for single patrols (2-14), large numbers only behind "over a moon" / "across many sunrises" framings)*
 
 ### Patrol mechanic problems
 
-- ○ **Border Patrol should NOT catch prey.** It refreshes scent markers. Reward = scent refreshed, territory walked.
-- ○ **Herb Patrol should catch HERBS, not prey.** Need an herb list (catmint, marigold, juniper, poppy seeds, cobwebs, comfrey, borage, tansy, yarrow, mouse bile, dock leaves, etc.)
-- ○ Training Patrol: mentor should say things like "try to scratch my shoulder," "pounce on my tail," "dodge my paw." Correct answer = successful move. Don't have the apprentice "hurt" the mentor seriously; this is sparring.
-- ○ Hunting Patrol: add bird variety (sparrows, blackbirds, starlings, robins). Add **frog** (rare). Make squirrels MORE common (currently rare). Rabbits should still be uncommon but present.
-- ○ Hawks are predators of cats, not prey. Don't list them as catchable.
+- ✓ **Border Patrol should NOT catch prey.** — *(v13: Border Patrol reward is "SCENT REFRESHED" with 32 dedicated flavor lines, no prey added)*
+- ✓ **Herb Patrol should catch HERBS, not prey.** — *(v13: 16-herb list with purposes; herbsCaught tracked separately from preyCaught; HERB STORES summary on completion)*
+- ✓ Training Patrol mentor sparring language — *(v13: 32 TRAINING_FLAVOR lines, all sheathed-claw sparring — "you scratch her shoulder", "you pounce on her tail", etc.)*
+- ✓ Hunting Patrol: bird variety, more squirrels, frog rare, hawks — *(v14: 13-prey table — mouse/vole/squirrel weighted heaviest; sparrow/thrush/blackbird/starling/robin/wren/finch all present; rabbit uncommon, frog rare, hawk rare; brand-new apprentices catch only mouse/sparrow/vole until 8 correct)*
+- ⚠ Hawks are predators of cats, not prey. — *(REVERSED per direct feedback v13.x: hawks restored to prey table at lowest weight per "we like hawks, sometimes also hunt hawks". Logged in case you change your mind again.)*
 
 ### Locations
 
-- ○ Sandy Hollow appears every time in geometry problems. Need rotation: Sandy Hollow, the Great Sycamore, Snakerocks, Sunningrocks, Fourtrees, the Thunderpath border, the Owl Tree, the Twoleg nest, Tallpines, the ravine
-- ○ "Tail-lengths" is too small for big areas. A clearing is NOT 3 tail-lengths. Use "fox-lengths" for medium, "tree-lengths" for large, "tail-lengths" only for very small things like a nest or a stone.
+- ✓ Sandy Hollow rotation — *(v13: 10 ThunderClan locations rotating; v13.x expanded to 10 per Clan including ShadowClan/RiverClan/WindClan)*
+- ✓ Unit scale — tail/fox/tree-lengths — *(v13: each location tagged small/medium/large; units chosen accordingly)*
 
 ### Progression system (her spec)
 
-- ○ Want full path: **Kit → Apprentice → Young Warrior → Warrior → Deputy → Leader → Elder**
-- ○ At apprentice ceremony, option to become **Medicine Cat** (must request the current medicine cat as mentor; if mentor already has an apprentice, can't be a medicine cat)
-- ○ Medicine cats CANNOT become Deputy or Leader
-- ○ At Warrior Ceremony, **player chooses their warrior suffix** (Mossheart, Mossfire, Mossfoot, Mossfur, Mossstrike, etc.)
-- ○ At Leader Ceremony, suffix changes to `-star`
-- ○ Becoming a warrior should NOT happen in 2 days. Slow it down. Make it a meaningful milestone.
-- ○ Should not catch a vole right away — too easy/anticlimactic. First catches should be smaller, build up.
+- ✓ Full path Kit → Apprentice → Young Warrior → Warrior → Deputy → Leader — *(v13)*
+- ✓ Medicine Cat path with mentor request — *(v13: two-step apprentice ceremony — choose intent, then walk to medicine cat den to ask. 70% chance she has an opening.)*
+- ✓ Medicine cats cannot become Deputy or Leader — *(v13: medicine path has its own ladder ending at Senior Medicine Cat)*
+- ✓ Player chooses warrior suffix — *(v13: 24 warrior suffixes + 14 medicine-cat suffixes, plus custom-text option)*
+- ✓ Leader suffix becomes `-star` — *(v13: automatic at leader ceremony)*
+- ✓ Becoming a warrior should NOT happen in 2 days — *(v13: thresholds raised to Young Warrior at 60, Warrior at 150, Deputy at 280, Leader at 420; Deputy and Leader are also chance-gated per patrol)*
+- ✓ First catches should be smaller — *(v14: PREY_EARLY pool while totalCorrect < 8 — only mouse/sparrow/vole)*
+- ☐ Elder rank — not yet implemented (logged on ROADMAP)
 
 ### Save system
 
-- ○ Want to save versions/save slots so she can play one character as a warrior and another as a medicine cat
-- ○ Don't lose progress when the game updates (export/import added in v12 patch ✓)
+- ✓ Save slots so she can play warrior + medicine cat as separate cats — *(v13: multi-slot save container, slot list view, switch-character button in den, per-slot delete)*
+- ✓ Don't lose progress when game updates — *(v13: full migration function from v12; v14 migration added rankFloor for legacy progress-bar correctness)*
 
 ### Repetition / adaptive learning
 
-- ○ Questions repeat too much. Want adaptive: track which problems she's good at, repeat those less, repeat hard ones more.
-- ○ Want tips and tricks for hard ones (mentor whispers but smarter)
+- ✓ Adaptive — repeat hard ones more, easy ones less — *(v14: spaced repetition with Wild/Tracking/Trusted buckets, weighted ~60/30/10. Promotion on fast correct, demotion on miss. Per-fact tracking.)*
+- ✓ Tips and tricks for hard ones — *(v14: prebuilt strategy library — ×2 double, ×4 double-double, ×5 half-of-×10, ×9 finger trick, ×10 add zero, ×11 single-digit twice; decomposition for 6×6, 6×7, 6×8, 6×9, 7×7, 7×8, 7×9, 8×8, 8×9, 9×9, 11×11, 12×12; addition strategies (doubles/near-doubles, +9, +10, make-a-ten). Surfaces automatically after second miss as "MENTOR'S STRATEGY".)*
+- ✓ Player-authored memory aids — *(v14: BONUS — after correct on a hard fact she can write a 200-char story; mentor whispers it before that fact reappears. Browseable/editable in "story flashcards" view.)*
 
 ### Visuals
 
-- ○ Almost entirely text. Want more graphics and animations. (Priority list in CLAUDE.md.)
+- ◐ Almost entirely text → SVGs shipped — *(v14: rank-aware cat portrait that grows/changes; per-Clan scenery panels; per-species prey icons; herb icon. Animations + AI-generated images + commissioned art are next; tracked on ROADMAP.)*
 
 ---
 
@@ -105,4 +103,9 @@ Never argue with her in this file. If something can't be implemented as requeste
 
 - v1–v12: rapid iteration with dad. Game progresses Kit → Apprentice → Warrior. She earned Warrior on day 2.
 - v12 patch: save export/import added so progress survives rewrites.
-- v13 (planned): full lore audit per this document.
+- v13: full lore audit per the v12 feedback above. Naming-ceremony arc, save slots, slowed progression, 30+ flavor lines per pool.
+- v13.x: Deputy/Leader as chance-based ceremonies; "ask the medicine cat" two-step apprentice ceremony; Leader ceremony with medicine-cat companion at the Moonstone; per-Clan accent palette; 10 geometry locations per Clan; hawks restored to prey table per direct feedback.
+- v14: spaced repetition (Wild/Tracking/Trusted), player-authored fact stories, prebuilt strategy hint library, SVG illustrations.
+- v14.1: Freckleleap migration bug fix — totalCorrect/totalAttempted now stay consistent.
+- v15a: multi-file split (33 modules under src/), Vite build pipeline, GitHub Action auto-deploy to VPS, Caddy serving on plain HTTP at the VPS IP. Site live.
+- v15b (planned): mastery-gated topic progression — see ROADMAP.md.

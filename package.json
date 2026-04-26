@@ -2,6 +2,16 @@
   "name": "warriors-path",
   "private": true,
   "version": "15.0.0-a",
+  "description": "A math practice game for a 3rd grade Warrior Cats fan. Built collaboratively by a dad and his daughter.",
+  "license": "SEE LICENSE IN LICENSE",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/winningday/warriors-path.git"
+  },
+  "homepage": "https://github.com/winningday/warriors-path#readme",
+  "bugs": {
+    "url": "https://github.com/winningday/warriors-path/issues"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",
