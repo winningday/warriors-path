@@ -21,6 +21,18 @@
   <img src="https://img.shields.io/badge/timers-NEVER-3a2929?style=flat-square&color=8b3a3a" alt="No timers">
 </p>
 
+> **License notice — April 2026.** This project was briefly published under
+> the MIT License between commits [`425a6be`](https://github.com/winningday/warriors-path/commit/425a6be)
+> and [`30c0df1`](https://github.com/winningday/warriors-path/commit/30c0df1)
+> (a window of approximately one hour, with 0 forks and 0 stars at the
+> moment of the switch). It was re-licensed to **PolyForm Noncommercial 1.0.0**
+> at commit [`56ec244`](https://github.com/winningday/warriors-path/commit/56ec244)
+> (tagged [`v15a-relicense-polyform`](https://github.com/winningday/warriors-path/releases/tag/v15a-relicense-polyform)).
+> All commits from `56ec244` onward are governed by the PolyForm
+> Noncommercial license. See [CHANGELOG.md](./CHANGELOG.md) for the full
+> record. The decision was made deliberately to preserve the project's
+> family-built, noncommercial character.
+
 ---
 
 ## What this is
