@@ -66,34 +66,181 @@ audited against one question: _does this make her want to play tomorrow?_
 
 ---
 
-## Live deployment
+## Run it yourself
 
-The game runs on a small VPS behind [Caddy](https://caddyserver.com/), with
-auto-HTTPS available when a domain is set, and a clean plain-HTTP fallback
-when only an IP is available. Every push to `main` triggers a GitHub Action
-that builds and rsyncs `dist/` to the VPS using a deploy key locked to a
-single rsync command. See [DEPLOY.md](./DEPLOY.md) for the full setup,
-including how to harden the unprivileged service user.
+Warrior's Path is a 100% client-side static site. **No backend, no database,
+no accounts, no environment variables, no API keys.** That makes it cheap
+and easy to host anywhere — pick whichever path fits you.
 
-```
-push to main  →  GitHub Action  →  npm ci  →  npm run build  →  rsync to VPS  →  iPad refresh
+### Prerequisites
+
+You need:
+
+- **Node.js 20+** ([nodejs.org](https://nodejs.org/) — installer or
+  `brew install node` on macOS, or your distro's package manager).
+- **git** to clone the repo.
+- That's it. No Python, no Docker, no databases, no Redis, no nothing.
+
+To verify:
+```bash
+node --version    # should print v20.x or higher
+npm --version
+git --version
 ```
 
 ---
 
-## Quick start (local development)
+### Option 1 — Just run it locally (5 minutes, zero hosting)
+
+Easiest if you only want to play it on your own computer.
 
 ```bash
 git clone https://github.com/winningday/warriors-path.git
 cd warriors-path
 npm install
-npm run dev                # → http://localhost:5173, hot reload
-npm run build              # → dist/  (static, ~226 KB)
-npm run preview            # serve dist/ locally to sanity-check
+npm run dev
 ```
 
-There are no environment variables, no API keys, no secrets to set up. The
-game runs entirely in your browser; saves go to `localStorage`.
+The terminal will print `http://localhost:5173/`. Open that in any browser.
+Saves persist in your browser's localStorage. Hot-reload works for editing.
+
+When you want to stop: `Ctrl-C` in the terminal.
+
+---
+
+### Option 2 — Fork & deploy free on Vercel / Netlify / Cloudflare Pages (10 minutes, free, with HTTPS)
+
+The simplest way to put a copy online with a real `https://` URL — and
+the path I'd recommend if you want your kid to play on an iPad. All three
+services are free for personal use, give you HTTPS automatically, and
+deploy on every git push.
+
+1. Click **Fork** on this repo (top-right of the GitHub page) to make your
+   own copy.
+2. Sign up at one of:
+   - [vercel.com](https://vercel.com/) — recommended; easiest UI.
+   - [netlify.com](https://www.netlify.com/) — also great.
+   - [pages.cloudflare.com](https://pages.cloudflare.com/) — fastest CDN.
+3. Click "New Project" / "Add new site" / "Create Project" → connect your
+   GitHub account → select your fork.
+4. Build settings (auto-detected for Vercel & Netlify; for Cloudflare Pages
+   set them manually):
+   - **Framework preset:** Vite
+   - **Build command:** `npm run build`
+   - **Output directory:** `dist`
+   - **Node version:** 20
+5. Hit deploy. ~90 seconds later you have a URL like
+   `https://warriors-path-yourname.vercel.app/` with a real TLS cert and
+   a global CDN. Every push to `main` auto-redeploys.
+
+> 🔒 **HTTPS is free here** — no Let's Encrypt setup, no domain, no
+> certificate management. The platform handles all of it.
+
+To use a custom domain: add it in the platform's dashboard, point a CNAME
+or A record at the hostname they give you, and they'll provision a cert
+within a few minutes. No Caddy / nginx config needed.
+
+---
+
+### Option 3 — GitHub Pages (free, slightly more setup)
+
+If you want hosting on GitHub itself with a `https://yourname.github.io/...`
+URL.
+
+1. Fork the repo.
+2. Enable **GitHub Pages**: repo Settings → Pages → Source: "GitHub Actions".
+3. Add a workflow file at `.github/workflows/pages.yml`:
+
+   ```yaml
+   name: Deploy to GitHub Pages
+   on:
+     push:
+       branches: [main]
+   permissions:
+     contents: read
+     pages: write
+     id-token: write
+   jobs:
+     deploy:
+       runs-on: ubuntu-latest
+       environment:
+         name: github-pages
+         url: ${{ steps.deployment.outputs.page_url }}
+       steps:
+         - uses: actions/checkout@v4
+         - uses: actions/setup-node@v4
+           with:
+             node-version: '20'
+             cache: 'npm'
+         - run: npm ci
+         - run: npm run build
+         - uses: actions/upload-pages-artifact@v3
+           with:
+             path: ./dist
+         - id: deployment
+           uses: actions/deploy-pages@v4
+   ```
+4. If your fork is hosted at `https://yourname.github.io/warriors-path/`
+   (not the apex of a custom domain), you also need to add a `base` to
+   `vite.config.js`:
+
+   ```js
+   export default defineConfig({
+     base: '/warriors-path/',
+     // …rest unchanged
+   });
+   ```
+
+5. Push. Wait ~2 minutes. Visit your `github.io` URL.
+
+---
+
+### Option 4 — Self-host on a VPS with Caddy (full control + auto-HTTPS)
+
+This is what we run. Auto-HTTPS via Caddy + Let's Encrypt if you have a
+domain; plain HTTP if you only have an IP. Includes a hardened deploy
+pipeline (unprivileged service user, deploy SSH key locked to a single
+rsync command, daily backups separate from the deploy tree).
+
+📖 **Full walkthrough: [DEPLOY.md](./DEPLOY.md)** — covers VPS user setup,
+Caddy install with the no-domain `:80 { … }` config, GitHub Action secret
+configuration, and a security model that keeps the running webserver
+isolated from the rest of your system.
+
+```
+push to main  →  GitHub Action  →  npm ci → build  →  rsync dist/ to VPS  →  iPad refresh
+```
+
+> ⚠️ **About the maintainer's deployment** — the "live" version above runs
+> on plain HTTP because it currently uses an IP address (no domain pointed
+> at it yet). If you visit it, your browser will say "Not Secure." That's
+> fine for a single-family local-use deployment, but if you want to share
+> a copy with your own kid (or others) over the open internet, **use
+> Option 2 (Vercel / Netlify / Cloudflare Pages) — you'll get HTTPS for
+> free, no work required.** The DEPLOY.md walkthrough also includes an
+> Option B for when you have a domain ready, which automatically adds
+> HTTPS.
+
+---
+
+## Forking — what to change for your own copy
+
+If you fork this for your own family's use:
+
+1. **Update the `homepage` and `repository` fields in `package.json`** to
+   point at your fork.
+2. **Replace `winningday` in the README badges** with your own GitHub
+   username so the shields show your repo's stats.
+3. **Optionally rename the project** (e.g., your kid's flavor — "Dragon's
+   Hoard" for a kid who likes dragons). Keep the lore-respect notice in
+   `LICENSE` and `NOTICE` even if you keep the Warriors theme — see the
+   [License section](#license) below.
+4. **Customize `DAUGHTER_NOTES.md`** to track your own kid's feedback;
+   delete the existing entries and start fresh.
+5. **Adjust math content** in `src/data/` — flavor pools, prey list, herbs,
+   strategies, locations. The lore canon in `CLAUDE.md` is your project's
+   constitution; rewrite it for your kid's preferences.
+6. **Pick a deployment path** from above and you're done.
 
 ---
 
@@ -234,10 +381,29 @@ in `sample-save.example.json` is fictional.
 
 ## License
 
-MIT — see [LICENSE](./LICENSE). The _Warriors_ book series and its
-characters/worldbuilding are © Erin Hunter (Working Partners) — this is an
-unofficial fan project for personal/family use, with deep respect for the
-source material.
+The original code, documentation, and assets in this repository are released
+under the **[MIT License](./LICENSE)**. You may freely use, modify,
+distribute, and even commercialize the code — as long as you keep the
+copyright notice and license text intact in your derivative.
+
+**The _Warriors_ book series, its Clan names, characters, terminology, and
+worldbuilding are © Erin Hunter (Working Partners) and HarperCollins.** They
+are referenced here for thematic and educational purposes under fair use
+for personal/family/non-commercial fan work. The MIT license on this
+repository **does not and cannot grant rights to that third-party
+intellectual property** — see the NOTICE block at the bottom of the
+[LICENSE](./LICENSE) file for details.
+
+If you fork this for your own family's use, the same posture applies. If
+you intend to distribute or commercialize a derivative, please respect
+the source material:
+
+- Keep the fan-work / personal-use framing clear in your own README.
+- Don't use the "Warriors" name or marks in your project's name or marketing.
+- Be prepared to take it down promptly if asked by the rights holders.
+
+Erin Hunter, HarperCollins, and Working Partners have not endorsed or
+sponsored this project.
 
 ---
 
