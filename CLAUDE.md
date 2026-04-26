@@ -372,6 +372,7 @@ Inline SVG, in `src/components/art/`:
 | `CLAUDE.md` (this file) | HOW we work, design principles, lore canon, anti-patterns, current architecture, Claude Code agent rules. |
 | `DAUGHTER_NOTES.md` | WHAT the daughter wants. Canonical player feedback log. Update items from `○` → `✓` when shipped. |
 | `ROADMAP.md` | Future work, deferred features, scoped plans (cloud saves, gamification, mastery, etc.), and rejected items with reasons. |
+| `CHANGELOG.md` | Version-by-version record of what shipped. |
 | `IMAGES.md` | Image inventory, visual style guide, AI prompts for replacing SVGs. Dad runs the prompts; integration is a small follow-up task. |
 | `SOUND.md` | Opt-in audio plan, sound triggers, where to find CC0 recordings, ffmpeg processing pipeline. |
 | `DEPLOY.md` | VPS setup (RackNerd), Caddy config (with no-domain Option A), GitHub Action secrets, manual deploy fallback. |
