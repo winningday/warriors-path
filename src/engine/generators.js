@@ -133,6 +133,129 @@ const genGeometry = (profile) => {
   };
 };
 
+// Time problems. Three kinds:
+//   time-clock     — read an analog clock face (twoleg sun-face)
+//   time-duration  — how much time elapsed between two given times
+//   time-future    — given a start time and a duration, what time will it be?
+//
+// Answers are total minutes (0–1439) for direct integer compare in the patrol view.
+// The view renders the answer back as H:MM.
+
+const TIME_GRAINS = {
+  hour:    [0],                                                  // :00
+  half:    [0, 30],                                              // :00, :30
+  quarter: [0, 15, 30, 45],                                      // :00, :15, :30, :45
+  five:    [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55],
+  any:     Array.from({ length: 60 }, (_, i) => i),
+};
+
+const pickGrain = (profile) => {
+  const tc = profile?.totalCorrect || 0;
+  // Light progression. Always include a mix so the player doesn't see only one shape.
+  const w = tc < 30 ? { hour: 30, half: 40, quarter: 25, five: 5, any: 0 }
+          : tc < 90 ? { hour: 10, half: 25, quarter: 30, five: 30, any: 5 }
+          : tc < 200 ? { hour: 5,  half: 15, quarter: 25, five: 40, any: 15 }
+          :           { hour: 0,  half: 10, quarter: 20, five: 40, any: 30 };
+  const total = Object.values(w).reduce((s, n) => s + n, 0);
+  let r = Math.random() * total;
+  for (const [k, n] of Object.entries(w)) {
+    r -= n;
+    if (r <= 0) return TIME_GRAINS[k];
+  }
+  return TIME_GRAINS.five;
+};
+
+const fmtTime = (h, m) => `${h}:${String(m).padStart(2, '0')}`;
+
+const genTimeClock = (profile) => {
+  const grain = pickGrain(profile);
+  const hour = randInt(1, 12);
+  const minute = pick(grain);
+  const stories = [
+    'An elder once learned to read the twoleg sun-face from a high oak. She teaches you the secret.',
+    'The medicine cat shows you the twoleg sun-face glimpsed past the fence-post.',
+    'Your mentor points to the round face nailed above the twoleg den.',
+    'You squint past the brambles at the sun-face on the twoleg wall.',
+    'A kittypet once told an apprentice what the marks on the round face mean. The lesson stayed.',
+    'You learn to read the twoleg time-marks the way you learn to read the wind.',
+  ];
+  return {
+    factId: null, kind: 'time-clock',
+    question: 'What time does the twoleg sun-face show?',
+    clock: { hour, minute },
+    answer: hour * 60 + minute,
+    story: pick(stories),
+    hint: 'Long hand points to the minutes. Short hand points to the hour. If the short hand is between two numbers, take the smaller one.',
+  };
+};
+
+const genTimeDuration = (profile) => {
+  const grain = pickGrain(profile);
+  const startH = randInt(1, 9);
+  const startM = pick(grain);
+  // Keep within a single half-day (no AM/PM crossing) and cap span at ~5 hours.
+  const spanH = randInt(0, 4);
+  const spanM = pick(grain);
+  const totalSpan = spanH * 60 + spanM;
+  if (totalSpan === 0) {
+    // Force at least 5 minutes to avoid trivial 0-minute answers.
+    return genTimeDuration(profile);
+  }
+  const startTotal = startH * 60 + startM;
+  let endTotal = startTotal + totalSpan;
+  // Stay within the same half-day frame (under 12:00 from start).
+  if (endTotal >= 12 * 60) endTotal = startTotal + (totalSpan % 180 || 60);
+  const endH = Math.floor(endTotal / 60);
+  const endM = endTotal % 60;
+  const stories = [
+    `Your vigil began at ${fmtTime(startH, startM)} and the next watch arrived at ${fmtTime(endH, endM)}. How long did you watch?`,
+    `You set out from camp at ${fmtTime(startH, startM)} and reached the Gathering at ${fmtTime(endH, endM)}. How long was the journey?`,
+    `The medicine cat began grinding herbs at ${fmtTime(startH, startM)} and finished at ${fmtTime(endH, endM)}. How long did it take?`,
+    `The dawn patrol left at ${fmtTime(startH, startM)} and returned at ${fmtTime(endH, endM)}. How long were they gone?`,
+    `You stalked a vole from ${fmtTime(startH, startM)} until you struck at ${fmtTime(endH, endM)}. How long was the hunt?`,
+  ];
+  return {
+    factId: null, kind: 'time-duration',
+    question: `From ${fmtTime(startH, startM)} to ${fmtTime(endH, endM)} — how much time passed?`,
+    answer: endTotal - startTotal,
+    story: pick(stories),
+    hint: 'Hours first, then minutes. If the end-minutes are smaller than the start-minutes, borrow an hour (60 minutes).',
+  };
+};
+
+const genTimeFuture = (profile) => {
+  const grain = pickGrain(profile);
+  const startH = randInt(1, 9);
+  const startM = pick(grain);
+  const spanH = randInt(0, 3);
+  const spanM = pick(grain);
+  const span = spanH * 60 + spanM;
+  if (span === 0) return genTimeFuture(profile);
+  const startTotal = startH * 60 + startM;
+  let endTotal = startTotal + span;
+  if (endTotal >= 12 * 60) endTotal = endTotal - 12 * 60;
+  const stories = [
+    `The Gathering begins at ${fmtTime(startH, startM)}. The journey takes ${spanH} hour${spanH === 1 ? '' : 's'} and ${spanM} minute${spanM === 1 ? '' : 's'}. When do you set off?`,
+    `Your vigil begins at ${fmtTime(startH, startM)} and lasts ${spanH}:${String(spanM).padStart(2, '0')}. When does the next cat take over?`,
+    `The patrol leaves at ${fmtTime(startH, startM)} and walks the boundary for ${spanH}:${String(spanM).padStart(2, '0')}. When do they return?`,
+    `The medicine cat steeps the herb at ${fmtTime(startH, startM)}; it must steep ${spanH}:${String(spanM).padStart(2, '0')}. When is it ready?`,
+  ];
+  return {
+    factId: null, kind: 'time-future',
+    question: `${fmtTime(startH, startM)} plus ${spanH}:${String(spanM).padStart(2, '0')} — what time?`,
+    answer: endTotal,
+    story: pick(stories),
+    hint: 'Add hours to hours, minutes to minutes. If the minutes total 60 or more, carry one hour.',
+  };
+};
+
+const genTime = (profile) => {
+  const r = Math.random();
+  if (r < 0.45) return genTimeClock(profile);
+  if (r < 0.75) return genTimeDuration(profile);
+  return genTimeFuture(profile);
+};
+
 const genFraction = (profile) => {
   const denoms = [2, 3, 4, 5];
   const d = denoms[randInt(0, denoms.length - 1)];
@@ -161,5 +284,6 @@ export const generateProblem = (topic, profile) => {
   if (topic === 'add')      return genAdd(profile);
   if (topic === 'geometry') return genGeometry(profile);
   if (topic === 'fraction') return genFraction(profile);
+  if (topic === 'time')     return genTime(profile);
   return genMult(profile);
 };

@@ -136,6 +136,11 @@ already implemented; this section is the canonical reference, not a TODO.
     the edge," etc. **Topic: perimeter and area.**
   - **Herb Patrol** (NOT "Herb Gathering"): collect herbs with the medicine
     cat. HERBS caught, not prey. **Topic: fractions.**
+  - **Vigil** — silent night-watch. NO prey, NO herbs — reward is
+    "VIGIL HELD" / "the night holds," like Border. Three problem kinds:
+    (1) clock reading on the "twoleg sun-face" the elders learned to read;
+    (2) duration math (vigil from X:XX to Y:YY); (3) time addition
+    (Gathering at X:XX plus a journey of H:MM). **Topic: time.**
 - **StarClan is sacred, not creepy.** "StarClan walks with you" yes;
   "StarClan is watching" no. ✓
 - **Prey commonality** (v14 weights match her v12 spec):

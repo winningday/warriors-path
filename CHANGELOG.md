@@ -19,6 +19,28 @@ For design philosophy see [`CLAUDE.md`](./CLAUDE.md).
 
 ---
 
+## [v15.0.0-b] — 2026-04-28
+
+### Added
+- **Vigil patrol** — fifth patrol covering 3rd-grade time. Three problem
+  kinds: clock reading (analog `ClockFace` SVG framed as the "twoleg
+  sun-face" elders learned to read), duration ("vigil began at 9:35,
+  ended at 11:00 — how long?"), and time addition ("Gathering at 6:30,
+  journey takes 1:35 — when do you set off?"). Difficulty grain
+  (hour / half / quarter / 5-min / any) ramps lightly with totalCorrect.
+  Reward = "VIGIL HELD" (no item caught, like Border).
+- `VIGIL_FLAVOR` pool (32 lines) of silent night-watch lines.
+- `ClockFace` component in `src/components/art/`. Weathered dark face,
+  brass-colored hands tinted by Clan accent.
+- HH:MM input via two number boxes in `PatrolView` for time problems.
+
+### Changed
+- `SAVE_VERSION` bumped to 15. Migration is non-destructive — no profile
+  schema change (vigils tracked per-patrol like borders/training, not on
+  the profile).
+
+---
+
 ## [v15a] — 2026-04-25
 
 ### Added

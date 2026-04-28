@@ -3,7 +3,7 @@
 //   Tracking — answered correctly once or twice; ~30%
 //   Trusted  — 3+ in a row correct & fast; ~10% (review only)
 
-export const SAVE_VERSION = 14;
+export const SAVE_VERSION = 15;
 
 export const SR_BUCKET = { WILD: 'wild', TRACKING: 'tracking', TRUSTED: 'trusted' };
 export const SR_BUCKET_ORDER = [SR_BUCKET.WILD, SR_BUCKET.TRACKING, SR_BUCKET.TRUSTED];

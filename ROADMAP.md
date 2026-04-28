@@ -35,6 +35,14 @@ Anything actively being built lives in a Git branch + commits, not here.
 - ✓ **v15a** — multi-file split: 2,975-line monolith → 33 modules under `src/`.
   Vite build pipeline. GitHub Action auto-deploys to VPS via rsync. Caddy
   serves on port 80 (no domain required). Site live on the VPS.
+- ✓ **v15.0.0-b — Vigil patrol (time)** — fifth patrol covering 3rd-grade time.
+  Three problem kinds: clock reading (analog `ClockFace` SVG, the "twoleg
+  sun-face"), duration math ("vigil began at 9:35, ended at 11:00 — how
+  long?"), and time addition ("Gathering at 6:30 + 1:35 journey — when?").
+  Difficulty grain (hour / half / quarter / 5-min / any) ramps lightly with
+  `totalCorrect`. Reward = "VIGIL HELD" (no item caught, like Border).
+  HH:MM input via two number boxes. SAVE_VERSION 15; non-destructive
+  migration (no profile schema change).
 
 ---
 

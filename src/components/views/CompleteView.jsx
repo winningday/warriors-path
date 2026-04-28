@@ -79,6 +79,16 @@ export const CompleteView = ({ profile, patrol, onReturn }) => {
             </div>
           </div>
         )}
+        {patrol.rewards.vigils > 0 && (
+          <div style={rewardSummary}>
+            <div style={{ ...styles.display, fontSize: 10, letterSpacing: '0.3em', color: '#7a8571', marginBottom: 8, textAlign: 'center' }}>
+              VIGIL HELD
+            </div>
+            <div style={{ textAlign: 'center', fontSize: 13, color: '#c8c0a8', fontStyle: 'italic' }}>
+              {patrol.rewards.vigils} silent watch{patrol.rewards.vigils === 1 ? '' : 'es'} kept under the stars.
+            </div>
+          </div>
+        )}
 
         <button onClick={onReturn} style={{
           width: '100%', padding: '16px',
