@@ -91,6 +91,14 @@ Each entry is dated. Closed entries (✓) have been addressed in code; open entr
 
 ---
 
+## v15.0.0-b feedback (2026-04-28) — time
+
+She mentioned she's currently learning time at school: subtracting and adding times like 6:30 minus 5:35, plus reading clocks.
+
+- ✓ Add **Vigil patrol** (5th patrol) covering 3rd-grade time. — *(v15.0.0-b: clock reading via `ClockFace` SVG framed as the "twoleg sun-face" the elders learned to read; duration math framed as silent night-watch / patrol travel; time addition framed as Gathering / journey timing. Difficulty grain ramps lightly with totalCorrect (hour → half → quarter → 5-min → any).)*
+
+---
+
 ## How to add to this file
 
 When she gives feedback, log it here verbatim or near-verbatim. Group by theme. Mark `○` for open, `✓` for addressed. When closing an entry, add a brief note: `✓ (v13: rotated 12 location names)`.
@@ -108,4 +116,5 @@ Never argue with her in this file. If something can't be implemented as requeste
 - v14: spaced repetition (Wild/Tracking/Trusted), player-authored fact stories, prebuilt strategy hint library, SVG illustrations.
 - v14.1: Freckleleap migration bug fix — totalCorrect/totalAttempted now stay consistent.
 - v15a: multi-file split (33 modules under src/), Vite build pipeline, GitHub Action auto-deploy to VPS, Caddy serving on plain HTTP at the VPS IP. Site live.
+- v15.0.0-b: Vigil patrol — fifth patrol covering 3rd-grade time (clock reading, duration, time addition).
 - v15b (planned): mastery-gated topic progression — see ROADMAP.md.

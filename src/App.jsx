@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { CLANS, MENTORS_BY_CLAN, MEDICINE_CATS_BY_CLAN } from './data/clans.js';
 import { PATROLS, PATH_WARRIOR, PATH_MEDICINE, ranksFor } from './data/ranks.js';
 import { PREY_COMMON, PREY_EARLY, HERBS } from './data/prey.js';
-import { PRAISE, PREY_FLAVOR, HERB_FLAVOR, BORDER_FLAVOR, TRAINING_FLAVOR, REVEAL_LINES } from './data/flavor.js';
+import { PRAISE, PREY_FLAVOR, HERB_FLAVOR, BORDER_FLAVOR, TRAINING_FLAVOR, VIGIL_FLAVOR, REVEAL_LINES } from './data/flavor.js';
 import { lookupStrategy } from './data/strategies.js';
 
 // Engine
@@ -323,7 +323,7 @@ export default function WarriorsPath() {
       slotsCount={container ? container.slots.length : 0}
       onStartPatrol={(patrolType) => {
         const problems = Array.from({ length: 5 }, () => generateProblem(patrolType.topic, profile));
-        setPatrol({ type: patrolType, problems, currentIdx: 0, correct: 0, rewards: { prey: [], herbs: [], borders: 0, training: 0 }, attempts: 0 });
+        setPatrol({ type: patrolType, problems, currentIdx: 0, correct: 0, rewards: { prey: [], herbs: [], borders: 0, training: 0, vigils: 0 }, attempts: 0 });
         setAnswerInput(''); setFeedback(null); setShowHint(false); setShowStrategy(false);
         setProblemStartedAt(Date.now());
         setView('patrol');
@@ -405,10 +405,23 @@ export default function WarriorsPath() {
       strategy={current.factId ? lookupStrategy(current.factId, current.factA, current.factB) : null}
       clanAccent={clan.accent}
       onSubmit={async () => {
-        const num = parseInt(answerInput, 10);
-        if (isNaN(num)) {
-          setFeedback({ type: 'nudge', text: 'Enter a number, warrior.' });
-          return;
+        const isTime = current.kind && current.kind.startsWith('time-');
+        let num;
+        if (isTime) {
+          const parts = String(answerInput || '').split(':');
+          const h = parseInt(parts[0], 10);
+          const m = parseInt(parts[1], 10);
+          if (isNaN(h) || isNaN(m)) {
+            setFeedback({ type: 'nudge', text: 'Enter hours and minutes, warrior.' });
+            return;
+          }
+          num = h * 60 + m;
+        } else {
+          num = parseInt(answerInput, 10);
+          if (isNaN(num)) {
+            setFeedback({ type: 'nudge', text: 'Enter a number, warrior.' });
+            return;
+          }
         }
         const elapsedMs = problemStartedAt ? (Date.now() - problemStartedAt) : 99999;
 
@@ -433,6 +446,7 @@ export default function WarriorsPath() {
             herbs: reward.herb ? [...patrol.rewards.herbs, reward.herb] : patrol.rewards.herbs,
             borders: patrol.rewards.borders + (reward.kind === 'border' ? 1 : 0),
             training: patrol.rewards.training + (reward.kind === 'training' ? 1 : 0),
+            vigils: (patrol.rewards.vigils || 0) + (reward.kind === 'vigil' ? 1 : 0),
           };
           const updatedPatrol = { ...patrol, correct: patrol.correct + 1, rewards: nextRewards, attempts: 0 };
 
@@ -461,7 +475,10 @@ export default function WarriorsPath() {
         } else {
           if (patrol.attempts >= 1) {
             await recordSR(false);
-            setFeedback({ type: 'reveal', text: `${pick(REVEAL_LINES)} The answer was ${current.answer}.` });
+            const revealAnswer = isTime
+              ? `${Math.floor(current.answer / 60)}:${String(current.answer % 60).padStart(2, '0')}`
+              : current.answer;
+            setFeedback({ type: 'reveal', text: `${pick(REVEAL_LINES)} The answer was ${revealAnswer}.` });
             const nextIdx = patrol.currentIdx + 1;
             setTimeout(() => {
               if (nextIdx >= patrol.problems.length) {
@@ -511,6 +528,9 @@ function buildCorrectReward(patrolType, profile) {
   }
   if (patrolType.reward === 'training') {
     return { kind: 'training', flavor: pick(TRAINING_FLAVOR) };
+  }
+  if (patrolType.reward === 'vigil') {
+    return { kind: 'vigil', flavor: pick(VIGIL_FLAVOR) };
   }
   return { kind: 'none', flavor: '' };
 }

@@ -35,4 +35,5 @@ export const PATROLS = [
   { id: 'hunting',  name: 'Hunting Patrol',  subtitle: 'Feed the Clan',             desc: 'Addition and subtraction',             topic: 'add',      reward: 'prey' },
   { id: 'border',   name: 'Border Patrol',   subtitle: 'Keep the border scent fresh', desc: 'Perimeter and area of the territory', topic: 'geometry', reward: 'border' },
   { id: 'herb',     name: 'Herb Patrol',     subtitle: 'Walk with the medicine cat', desc: 'Fractions of herbs and leaves',        topic: 'fraction', reward: 'herb' },
+  { id: 'vigil',    name: 'Vigil',           subtitle: 'Keep watch through the night', desc: 'Telling time, adding and subtracting times', topic: 'time',     reward: 'vigil' },
 ];

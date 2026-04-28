@@ -1,11 +1,16 @@
 import React from 'react';
 import { styles, inputStyle, btnPrimary } from '../shared/styles.js';
 import { FontLoader } from '../shared/FontLoader.jsx';
+import { ClockFace } from '../art/ClockFace.jsx';
 
 export const PatrolView = ({ patrol, profile, current, factStory, answerInput, setAnswerInput, feedback, showHint, setShowHint, showStrategy, strategy, clanAccent, onSubmit, onQuit }) => {
   const progress = ((patrol.currentIdx) / patrol.problems.length) * 100;
   const handleKey = (e) => { if (e.key === 'Enter') onSubmit(); };
   const isMoving = feedback?.type === 'correct' || feedback?.type === 'reveal';
+  const isTimeProblem = current.kind && current.kind.startsWith('time-');
+  const [hPart, mPart] = isTimeProblem ? (answerInput.includes(':') ? answerInput.split(':') : ['', '']) : ['', ''];
+  const setH = (v) => setAnswerInput(`${v}:${mPart}`);
+  const setM = (v) => setAnswerInput(`${hPart}:${v}`);
 
   return (
     <div style={styles.root}>
@@ -52,6 +57,11 @@ export const PatrolView = ({ patrol, profile, current, factStory, answerInput, s
           <div style={{ fontSize: 13, color: '#a39d88', fontStyle: 'italic', marginBottom: 18, textAlign: 'center' }}>
             {current.story}
           </div>
+          {current.clock && (
+            <div style={{ marginBottom: 16 }}>
+              <ClockFace hour={current.clock.hour} minute={current.clock.minute} accent={clanAccent} size={200} />
+            </div>
+          )}
           <div style={{
             fontSize: current.question.length > 40 ? 16 : 28,
             color: '#e8dcc0',
@@ -107,6 +117,7 @@ export const PatrolView = ({ patrol, profile, current, factStory, answerInput, s
                 {feedback.kind === 'herb'  && <div style={{ ...styles.display, fontSize: 11, letterSpacing: '0.3em', marginBottom: 6 }}>HERB GATHERED · {feedback.herb.toUpperCase()}</div>}
                 {feedback.kind === 'border' && <div style={{ ...styles.display, fontSize: 11, letterSpacing: '0.3em', marginBottom: 6 }}>SCENT REFRESHED</div>}
                 {feedback.kind === 'training' && <div style={{ ...styles.display, fontSize: 11, letterSpacing: '0.3em', marginBottom: 6 }}>A CLEAN MOVE</div>}
+                {feedback.kind === 'vigil' && <div style={{ ...styles.display, fontSize: 11, letterSpacing: '0.3em', marginBottom: 6 }}>THE NIGHT HOLDS</div>}
                 <div style={{ fontStyle: 'italic' }}>{feedback.flavor}</div>
                 <div style={{ fontSize: 12, marginTop: 6, color: '#a39d88' }}>{feedback.praise}</div>
               </>
@@ -117,11 +128,27 @@ export const PatrolView = ({ patrol, profile, current, factStory, answerInput, s
 
         {!isMoving && (
           <>
-            <input type="number" value={answerInput}
-              onChange={(e) => setAnswerInput(e.target.value)}
-              onKeyDown={handleKey}
-              placeholder="Your answer" autoFocus
-              style={{ ...inputStyle, fontSize: 22, textAlign: 'center', padding: '16px', marginBottom: 12 }} />
+            {isTimeProblem ? (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+                <input type="number" inputMode="numeric" value={hPart}
+                  onChange={(e) => setH(e.target.value)}
+                  onKeyDown={handleKey}
+                  placeholder="hr" autoFocus min="0" max="12"
+                  style={{ ...inputStyle, fontSize: 22, textAlign: 'center', padding: '16px' }} />
+                <span style={{ ...styles.display, fontSize: 28, color: '#a39d88' }}>:</span>
+                <input type="number" inputMode="numeric" value={mPart}
+                  onChange={(e) => setM(e.target.value)}
+                  onKeyDown={handleKey}
+                  placeholder="min" min="0" max="59"
+                  style={{ ...inputStyle, fontSize: 22, textAlign: 'center', padding: '16px' }} />
+              </div>
+            ) : (
+              <input type="number" value={answerInput}
+                onChange={(e) => setAnswerInput(e.target.value)}
+                onKeyDown={handleKey}
+                placeholder="Your answer" autoFocus
+                style={{ ...inputStyle, fontSize: 22, textAlign: 'center', padding: '16px', marginBottom: 12 }} />
+            )}
             <button onClick={onSubmit} style={btnPrimary(clanAccent)}>STRIKE</button>
             {!showHint && (
               <button onClick={() => setShowHint(true)} style={{
