@@ -11,6 +11,31 @@ For design philosophy see [`CLAUDE.md`](./CLAUDE.md).
 
 ## [Unreleased]
 
+### Changed — speed histogram rebucketed + per-kind breakdown
+- **New 9-bucket layout** replaces the legacy 6-bucket one (`<2s / 2–4s /
+  4–7s / 7–10s / 10–20s / >20s`). Old buckets were calibrated for the
+  global 4s/7s SR gate that v15.0.0-d retired; they didn't stretch far
+  enough for compute-heavy kinds where 30–60s answers are normal. New
+  buckets: `<1s / 1–2s / 2–3s / 3–5s / 5–10s / 10–20s / 20–45s /
+  45–90s / >90s`. Tighter at the fast end (where fluency lives), wider
+  at the slow end (where multi-step word problems live).
+- **Per-kind breakdown.** Histogram now defaults to cumulative ("All")
+  but can be filtered to any specific problem kind: Mult (drill / word),
+  Add / Sub (small / large), Geometry, Fractions, Clock, Duration, Future
+  time. The chip count next to each kind shows how many samples that
+  kind has accumulated.
+- **Calibration context.** When a specific kind is selected, the
+  histogram is colored relative to that kind's `fast` / `ok` thresholds
+  (green = fast band, neutral = ok band, muted = slow), and a summary
+  line below counts how many samples fell in each band, plus whether
+  this kind is `speedPromotes` (fast answers raise the SR bucket) or
+  streak-promote-only.
+- Histogram is now computed **on-the-fly from `kindSamples`** (the raw
+  per-kind ms ring buffer added in v15.0.0-d) instead of read from the
+  legacy `elapsedHistogram` aggregate field. The legacy field is no
+  longer written to or read from; it stays on older saves as vestigial
+  data and migration leaves it alone.
+
 ### Added — dashboard rework (parent-utility)
 - **Hot list** at the top of the Keeper's Record. Top 5 weakest tracked
   facts across all topics, scored by `(1 - accuracy) × log(1 + tracked)`,

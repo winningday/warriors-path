@@ -9,7 +9,7 @@ import { lookupStrategy } from './data/strategies.js';
 
 // Engine
 import { pick, weightedPick, newSlotId } from './engine/utils.js';
-import { SR_BUCKET, SAVE_VERSION, ensureFact, applySRResult, histogramBucketFor, personalThreshold, appendSample } from './engine/sr.js';
+import { SR_BUCKET, SAVE_VERSION, ensureFact, applySRResult, personalThreshold, appendSample } from './engine/sr.js';
 import { autoRankForCorrect, rollEligibleChanceRank, getFullName } from './engine/rank.js';
 import { generateProblem } from './engine/generators.js';
 import { normalizeProfile, normalizeToV13 } from './engine/migration.js';
@@ -497,12 +497,11 @@ export default function WarriorsPath() {
               reveals: stats.reveals + (outcome === 'reveal' ? 1 : 0),
             };
             next.topicStats = ts;
-            if (isCorrect) {
-              const hist = { ...(p.elapsedHistogram || {}) };
-              const bucket = histogramBucketFor(elapsedMs);
-              hist[bucket] = (hist[bucket] || 0) + 1;
-              next.elapsedHistogram = hist;
-            }
+            // v15.0.0-e — elapsedHistogram is no longer maintained. The
+            // dashboard computes the histogram on-the-fly from kindSamples,
+            // which holds the raw ms values for the last 50 correct answers
+            // per kind. Older saves keep their legacy elapsedHistogram field
+            // (now vestigial) — migration leaves it alone.
             return next;
           });
         };

@@ -5,7 +5,7 @@ import { CLANS } from '../../data/clans.js';
 import { PATROLS } from '../../data/ranks.js';
 import {
   SR_BUCKET, SR_FAST_MS, SR_OK_MS,
-  HISTOGRAM_BUCKETS, parseFactId,
+  HISTOGRAM_BUCKETS, HISTOGRAM_BUCKET_RANGES, computeHistogram, parseFactId,
 } from '../../engine/sr.js';
 import { lookupStrategy } from '../../data/strategies.js';
 
@@ -50,13 +50,34 @@ const FACT_TABS = [
 ];
 
 const HISTOGRAM_LABELS = {
-  under2s:  '< 2s',
-  '2to4s':  '2–4s',
-  '4to7s':  '4–7s',
-  '7to10s': '7–10s',
+  under1s:  '< 1s',
+  '1to2s':  '1–2s',
+  '2to3s':  '2–3s',
+  '3to5s':  '3–5s',
+  '5to10s': '5–10s',
   '10to20s':'10–20s',
-  over20s:  '> 20s',
+  '20to45s':'20–45s',
+  '45to90s':'45–90s',
+  over90s:  '> 90s',
 };
+
+// Speed-histogram filter chips. "All" sums samples across every kind;
+// each kind chip filters to a single problem type. Layout is grouped
+// loosely by topic so the parent can scan related kinds together.
+const HISTOGRAM_KINDS = [
+  { id: 'all',           label: 'All',           group: 'all' },
+  { id: 'mult-drill',    label: 'Mult (drill)',  group: 'mult' },
+  { id: 'mult-word',     label: 'Mult (word)',   group: 'mult' },
+  { id: 'add-small',     label: 'Add (small)',   group: 'add' },
+  { id: 'sub-small',     label: 'Sub (small)',   group: 'add' },
+  { id: 'add-large',     label: 'Add (large)',   group: 'add' },
+  { id: 'sub-large',     label: 'Sub (large)',   group: 'add' },
+  { id: 'geometry',      label: 'Geometry',      group: 'geo' },
+  { id: 'fraction',      label: 'Fractions',     group: 'frac' },
+  { id: 'time-clock',    label: 'Clock',         group: 'time' },
+  { id: 'time-duration', label: 'Duration',      group: 'time' },
+  { id: 'time-future',   label: 'Future time',   group: 'time' },
+];
 
 // Local fallback for KIND_THRESHOLDS — the parallel SR engine PR exports
 // this constant and per-kind sample storage. If that PR hasn't merged yet
@@ -318,10 +339,12 @@ export const StatsView = ({ profile, onBack }) => {
   const [factSort, setFactSort] = useState('hardest');
   const [factKind, setFactKind] = useState('mult');
   const [showAllFacts, setShowAllFacts] = useState(false);
+  // v15.0.0-e — speed histogram supports cumulative ('all') and per-kind
+  // breakdowns. Default to cumulative since that's the all-of-it overview.
+  const [histKind, setHistKind] = useState('all');
 
   const sr = profile.factsSR || {};
   const history = profile.patrolHistory || [];
-  const hist = profile.elapsedHistogram || {};
   const topics = profile.topicStats || {};
   // Per-kind elapsed-time samples, added by the parallel SR engine PR.
   // Shape: profile.kindSamples[kind] = { samples: [number, ...] }.
@@ -547,8 +570,56 @@ export const StatsView = ({ profile, onBack }) => {
   const avgPerPatrol = history.length ? overview.totalDuration / history.length : 0;
   const avgPerProblem = trackedAttempts ? overview.totalDuration / trackedAttempts : 0;
 
-  // ----- Histogram -----
-  const histTotal = HISTOGRAM_BUCKETS.reduce((s, b) => s + (hist[b] || 0), 0);
+  // ----- Histogram (v15.0.0-e) -----
+  // Compute on-the-fly from kindSamples. "all" sums every kind's samples;
+  // a specific kind filter narrows to one kind's samples. The legacy
+  // profile.elapsedHistogram field is no longer read.
+  const histSamples = useMemo(() => {
+    if (histKind === 'all') {
+      const all = [];
+      for (const k of Object.keys(kindSamples)) {
+        const s = kindSamples[k]?.samples;
+        if (Array.isArray(s)) all.push(...s);
+      }
+      return all;
+    }
+    return kindSamples[histKind]?.samples || [];
+  }, [histKind, kindSamples]);
+  const histCounts = useMemo(() => computeHistogram(histSamples), [histSamples]);
+  const histTotal = histSamples.length;
+  const histThresholds = histKind === 'all' ? null : kindThresholds[histKind];
+
+  // For each bucket, decide whether its midpoint falls inside the selected
+  // kind's fast / ok bands. Returns 'fast' | 'ok' | 'slow' | 'neutral'
+  // (neutral when no specific kind is selected — we use a static gradient).
+  const bucketBand = (bucketKey) => {
+    if (!histThresholds) {
+      // Cumulative view — static green→neutral→muted gradient based on
+      // realistic fluency expectations.
+      if (bucketKey === 'under1s' || bucketKey === '1to2s' || bucketKey === '2to3s') return 'fast';
+      if (bucketKey === '3to5s' || bucketKey === '5to10s') return 'ok';
+      return 'slow';
+    }
+    const range = HISTOGRAM_BUCKET_RANGES[bucketKey];
+    if (!range) return 'slow';
+    // Use the midpoint (or the lower bound for the open-ended top bucket).
+    const mid = isFinite(range[1]) ? (range[0] + range[1]) / 2 : range[0];
+    if (mid < histThresholds.fast) return 'fast';
+    if (mid < histThresholds.ok)   return 'ok';
+    return 'slow';
+  };
+
+  // Summary counts for the per-kind view: how many samples fall in fast / ok / slow.
+  const histSummary = useMemo(() => {
+    if (!histThresholds) return null;
+    let fast = 0, ok = 0, slow = 0;
+    for (const ms of histSamples) {
+      if (ms < histThresholds.fast)      fast += 1;
+      else if (ms < histThresholds.ok)   ok   += 1;
+      else                               slow += 1;
+    }
+    return { fast, ok, slow };
+  }, [histSamples, histThresholds]);
 
   // ----- Per-fact rows (with v15.0.0-d 6-tab split) -----
   const factRows = useMemo(() => {
@@ -866,25 +937,45 @@ export const StatsView = ({ profile, onBack }) => {
           </table>
         </div>
 
-        {/* SPEED HISTOGRAM */}
+        {/* SPEED HISTOGRAM (v15.0.0-e — cumulative + per-kind breakdown) */}
         <SectionHead accent={accent}>SPEED OF CORRECT ANSWERS</SectionHead>
         <div style={{ ...panel }}>
-          <div style={{ fontSize: 11, color: '#7a8571', marginBottom: 12, lineHeight: 1.5 }}>
-            How long correct answers took. Current promotion threshold is{' '}
-            <span style={{ color: '#c8c0a8' }}>under {SR_FAST_MS / 1000}s = "fast"</span>{', '}
-            <span style={{ color: '#c8c0a8' }}>{SR_FAST_MS / 1000}–{SR_OK_MS / 1000}s = "ok"</span>{'. '}
-            If most answers are under 2s, "fast" may be too generous — bump it down.
-            If under-2s is rare, "fast" is well-calibrated for now.
+          <div style={{ fontSize: 11, color: '#7a8571', marginBottom: 10, lineHeight: 1.5 }}>
+            How long her correct answers took. Filter by problem type to see whether
+            a specific kind is well-calibrated, or stay on
+            <span style={{ color: '#c8c0a8' }}> All</span> for the cumulative picture.
+            Buckets are tighter at the fast end where fluency matters and wider at
+            the slow end where multi-step word problems live.
           </div>
-          {HISTOGRAM_BUCKETS.map((b) => {
-            const n = hist[b] || 0;
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12, fontSize: 12 }}>
+            {HISTOGRAM_KINDS.map((k) => {
+              const n = k.id === 'all'
+                ? Object.values(kindSamples).reduce((s, e) => s + (e?.samples?.length || 0), 0)
+                : (kindSamples[k.id]?.samples?.length || 0);
+              return (
+                <FilterChip key={k.id} active={histKind === k.id} onClick={() => setHistKind(k.id)}>
+                  {k.label}{n > 0 ? <span style={{ color: '#5a6155', marginLeft: 4 }}>({n})</span> : null}
+                </FilterChip>
+              );
+            })}
+          </div>
+
+          {histTotal === 0 && (
+            <div style={{ fontSize: 12, color: '#7a8571', fontStyle: 'italic', padding: '12px 0' }}>
+              {histKind === 'all'
+                ? 'No correct-answer samples yet — she\'ll populate this with her next patrol.'
+                : `No samples for ${HISTOGRAM_KINDS.find((k) => k.id === histKind)?.label} yet.`}
+            </div>
+          )}
+
+          {histTotal > 0 && HISTOGRAM_BUCKETS.map((b) => {
+            const n = histCounts[b] || 0;
             const w = histTotal ? (n / histTotal) * 100 : 0;
-            const inFastBand = b === 'under2s' || b === '2to4s';
-            const inOkBand = b === '4to7s';
-            const color = inFastBand ? '#7a9d6a' : inOkBand ? '#c8c0a8' : '#7a8571';
+            const band = bucketBand(b);
+            const color = band === 'fast' ? '#7a9d6a' : band === 'ok' ? '#c8c0a8' : '#5a6155';
             return (
               <div key={b} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                <div style={{ width: 56, fontSize: 11, color: '#7a8571', textAlign: 'right' }}>
+                <div style={{ width: 64, fontSize: 11, color: '#7a8571', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
                   {HISTOGRAM_LABELS[b]}
                 </div>
                 <div style={{ flex: 1, background: '#1a2419', height: 14, borderRadius: 2, position: 'relative' }}>
@@ -893,15 +984,35 @@ export const StatsView = ({ profile, onBack }) => {
                     background: color, transition: 'width 0.4s', borderRadius: 2,
                   }} />
                 </div>
-                <div style={{ width: 56, fontSize: 12, color: '#a39d88', fontVariantNumeric: 'tabular-nums' }}>
-                  {n} ({histTotal ? Math.round(w) : 0}%)
+                <div style={{ width: 70, fontSize: 12, color: '#a39d88', fontVariantNumeric: 'tabular-nums' }}>
+                  {n} ({Math.round(w)}%)
                 </div>
               </div>
             );
           })}
-          <div style={{ fontSize: 11, color: '#5a6155', marginTop: 10 }}>
-            Total correct sampled: {histTotal}
-          </div>
+
+          {histTotal > 0 && histThresholds && histSummary && (
+            <div style={{ fontSize: 11, color: '#a39d88', marginTop: 12, lineHeight: 1.6 }}>
+              For {HISTOGRAM_KINDS.find((k) => k.id === histKind)?.label}: thresholds are
+              {' '}<span style={{ color: '#7a9d6a' }}>fast &lt; {(histThresholds.fast / 1000).toFixed(0)}s</span>,
+              {' '}<span style={{ color: '#c8c0a8' }}>ok &lt; {(histThresholds.ok / 1000).toFixed(0)}s</span>.
+              <br />
+              Of {histTotal} sampled correct answers:
+              {' '}<span style={{ color: '#7a9d6a' }}>{histSummary.fast} fast ({Math.round(histSummary.fast / histTotal * 100)}%)</span>,
+              {' '}<span style={{ color: '#c8c0a8' }}>{histSummary.ok} ok ({Math.round(histSummary.ok / histTotal * 100)}%)</span>,
+              {' '}<span style={{ color: '#5a6155' }}>{histSummary.slow} slow ({Math.round(histSummary.slow / histTotal * 100)}%)</span>.
+              {histThresholds.speedPromotes
+                ? <span style={{ color: '#7a8571' }}> &nbsp;Speed-promotes — fast answers raise the SR bucket.</span>
+                : <span style={{ color: '#7a8571' }}> &nbsp;Streak-promotes — speed doesn{'’'}t move the bucket; correctness streak does.</span>}
+            </div>
+          )}
+
+          {histTotal > 0 && !histThresholds && (
+            <div style={{ fontSize: 11, color: '#5a6155', marginTop: 10 }}>
+              Cumulative across {Object.keys(kindSamples).length} kind{Object.keys(kindSamples).length === 1 ? '' : 's'}.
+              Pick a kind above to see how that specific type lines up against its calibration thresholds.
+            </div>
+          )}
         </div>
 
         {/* PER-FACT TABLE — extended in v15.0.0-d to all six categories. */}
