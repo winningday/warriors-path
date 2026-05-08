@@ -35,6 +35,16 @@ Anything actively being built lives in a Git branch + commits, not here.
 - ✓ **v15a** — multi-file split: 2,975-line monolith → 33 modules under `src/`.
   Vite build pipeline. GitHub Action auto-deploys to VPS via rsync. Caddy
   serves on port 80 (no domain required). Site live on the VPS.
+- ✓ **v15.0.0-d — Per-kind adaptive SR + fact-track every topic** — the
+  global 4s/7s SR thresholds were calibrated for memorized-fact drills only;
+  compute-heavy problems (large add/sub, geometry, fractions, time-duration)
+  could never promote past Wild under that gate. Each kind now has its own
+  threshold (compute-heavy kinds promote on 3-correct streak instead of
+  speed), and once ≥20 correct samples exist for a kind the player's own
+  P25 becomes her personal-fast cutoff. Every problem kind now produces a
+  factId, so subtraction / geometry / fractions / time all show up in the
+  per-fact dashboard. SAVE_VERSION 17 — additive migration adds
+  `kindSamples: {}` and preserves all existing factsSR entries.
 - ✓ **v15.0.0-c — Hint fixes + parent dashboard** — strategy hints rewritten
   to teach the technique without computing the answer; thin first-pass hints
   ("Add the numbers." / "Tens first, then ones." / "Subtract carefully…")

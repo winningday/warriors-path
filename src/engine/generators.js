@@ -78,7 +78,11 @@ const genAdd = (profile) => {
       `You carry ${start} sparrows to the camp. ${give} are claimed by the warriors. How many remain for the apprentices?`,
       `You begin the day with ${start} fresh-caught voles. ${give} go straight to the medicine cat for sick cats. How many for the rest of the Clan?`,
     ];
-    return { factId: id, factA: give, factB: start - give, kind: 'sub-small', question: `${start} − ${give}`, answer: start - give, story: pick(stories), hint: `Count back from ${start} by ${give}. Or think: ${give} plus what makes ${start}?` };
+    // Small subtraction is fact-like — we DO want to track which specific
+    // pair (12-5, 14-9, etc.) the player struggles with. Use sub:start-give
+    // as the factId so each pair has its own SR row.
+    const subId = factId('sub', start, give);
+    return { factId: subId, factA: give, factB: start - give, kind: 'sub-small', question: `${start} − ${give}`, answer: start - give, story: pick(stories), hint: `Count back from ${start} by ${give}. Or think: ${give} plus what makes ${start}?` };
   }
   if (Math.random() < 0.5) {
     const a = randInt(20, 80);
@@ -88,7 +92,9 @@ const genAdd = (profile) => {
       `In greenleaf, your Clan added ${a} prey to the pile. In the next half-moon, ${b} more. How many in total?`,
       `Across many sunrises, the apprentices brought back ${a} small birds. The warriors brought back ${b}. How many altogether?`,
     ];
-    return { factId: null, kind: 'add-large', question: `${a} + ${b}`, answer: a + b, story: pick(stories), hint: `Stack them in your head. Add the tens column, then the ones column. If the ones make 10 or more, carry one to the tens.` };
+    // Large add/sub is computation-heavy; the specific 47+62 isn't worth a
+    // separate SR row. Use a single coarse 'add:large' bucket.
+    return { factId: 'add:large', kind: 'add-large', question: `${a} + ${b}`, answer: a + b, story: pick(stories), hint: `Stack them in your head. Add the tens column, then the ones column. If the ones make 10 or more, carry one to the tens.` };
   }
   const big = randInt(40, 120);
   const small = randInt(10, big - 5);
@@ -97,7 +103,7 @@ const genAdd = (profile) => {
     `Your Clan begins leaf-fall with ${big} stored herbs. Over many days, ${small} are used. How many remain?`,
     `By the end of greenleaf, the Clan had added ${big} prey to the pile. ${small} fed the elders and queens. How many were left for the warriors?`,
   ];
-  return { factId: null, kind: 'sub-large', question: `${big} − ${small}`, answer: big - small, story: pick(stories), hint: `Stack them with the bigger number on top. Subtract the ones column first; if the top digit is smaller, borrow 10 from the tens column.` };
+  return { factId: 'sub:large', kind: 'sub-large', question: `${big} − ${small}`, answer: big - small, story: pick(stories), hint: `Stack them with the bigger number on top. Subtract the ones column first; if the top digit is smaller, borrow 10 from the tens column.` };
 };
 
 const genGeometry = (profile) => {
@@ -114,6 +120,8 @@ const genGeometry = (profile) => {
       `Your mentor asks you to pace the edge of ${loc.name}.`,
     ];
     return {
+      factId: factId('geo', 'perimeter', loc.scale),
+      kind: 'geometry',
       question: `${loc.name} is ${w} ${unit} wide and ${h} ${unit} long. What is the PERIMETER?`,
       answer: 2 * (w + h),
       story: pick(stories),
@@ -126,6 +134,8 @@ const genGeometry = (profile) => {
     `You imagine a grid laid over ${loc.name}.`,
   ];
   return {
+    factId: factId('geo', 'area', loc.scale),
+    kind: 'geometry',
     question: `${loc.name} is ${w} ${unit} wide and ${h} ${unit} long. What is the AREA?`,
     answer: w * h,
     story: pick(stories),
@@ -149,6 +159,10 @@ const TIME_GRAINS = {
   any:     Array.from({ length: 60 }, (_, i) => i),
 };
 
+// v17 — pickGrain now returns { name, values } so callers can thread the
+// grain name into the factId (e.g. time:clock:quarter). The dashboard can
+// then distinguish "she's solid on quarter-hour clocks but five-minute
+// clocks are still hard" — that signal lives in the grain.
 const pickGrain = (profile) => {
   const tc = profile?.totalCorrect || 0;
   // Light progression. Always include a mix so the player doesn't see only one shape.
@@ -160,9 +174,9 @@ const pickGrain = (profile) => {
   let r = Math.random() * total;
   for (const [k, n] of Object.entries(w)) {
     r -= n;
-    if (r <= 0) return TIME_GRAINS[k];
+    if (r <= 0) return { name: k, values: TIME_GRAINS[k] };
   }
-  return TIME_GRAINS.five;
+  return { name: 'five', values: TIME_GRAINS.five };
 };
 
 const fmtTime = (h, m) => `${h}:${String(m).padStart(2, '0')}`;
@@ -170,7 +184,7 @@ const fmtTime = (h, m) => `${h}:${String(m).padStart(2, '0')}`;
 const genTimeClock = (profile) => {
   const grain = pickGrain(profile);
   const hour = randInt(1, 12);
-  const minute = pick(grain);
+  const minute = pick(grain.values);
   const stories = [
     'An elder once learned to read the twoleg sun-face from a high oak. She teaches you the secret.',
     'The medicine cat shows you the twoleg sun-face glimpsed past the fence-post.',
@@ -180,7 +194,8 @@ const genTimeClock = (profile) => {
     'You learn to read the twoleg time-marks the way you learn to read the wind.',
   ];
   return {
-    factId: null, kind: 'time-clock',
+    factId: factId('time-clock', grain.name),
+    kind: 'time-clock',
     question: 'What time does the twoleg sun-face show?',
     clock: { hour, minute },
     answer: hour * 60 + minute,
@@ -192,10 +207,10 @@ const genTimeClock = (profile) => {
 const genTimeDuration = (profile) => {
   const grain = pickGrain(profile);
   const startH = randInt(1, 9);
-  const startM = pick(grain);
+  const startM = pick(grain.values);
   // Keep within a single half-day (no AM/PM crossing) and cap span at ~5 hours.
   const spanH = randInt(0, 4);
-  const spanM = pick(grain);
+  const spanM = pick(grain.values);
   const totalSpan = spanH * 60 + spanM;
   if (totalSpan === 0) {
     // Force at least 5 minutes to avoid trivial 0-minute answers.
@@ -215,7 +230,8 @@ const genTimeDuration = (profile) => {
     `You stalked a vole from ${fmtTime(startH, startM)} until you struck at ${fmtTime(endH, endM)}. How long was the hunt?`,
   ];
   return {
-    factId: null, kind: 'time-duration',
+    factId: factId('time-duration', grain.name),
+    kind: 'time-duration',
     question: `From ${fmtTime(startH, startM)} to ${fmtTime(endH, endM)} — how much time passed?`,
     answer: endTotal - startTotal,
     story: pick(stories),
@@ -226,9 +242,9 @@ const genTimeDuration = (profile) => {
 const genTimeFuture = (profile) => {
   const grain = pickGrain(profile);
   const startH = randInt(1, 9);
-  const startM = pick(grain);
+  const startM = pick(grain.values);
   const spanH = randInt(0, 3);
-  const spanM = pick(grain);
+  const spanM = pick(grain.values);
   const span = spanH * 60 + spanM;
   if (span === 0) return genTimeFuture(profile);
   const startTotal = startH * 60 + startM;
@@ -241,7 +257,8 @@ const genTimeFuture = (profile) => {
     `The medicine cat steeps the herb at ${fmtTime(startH, startM)}; it must steep ${spanH}:${String(spanM).padStart(2, '0')}. When is it ready?`,
   ];
   return {
-    factId: null, kind: 'time-future',
+    factId: factId('time-future', grain.name),
+    kind: 'time-future',
     question: `${fmtTime(startH, startM)} plus ${spanH}:${String(spanM).padStart(2, '0')} — what time?`,
     answer: endTotal,
     story: pick(stories),
@@ -272,6 +289,8 @@ const genFraction = (profile) => {
     `Your bundle holds ${num} ${herb} leaves. ${names[d]} is needed for ${recipient}. How many leaves?`,
   ];
   return {
+    factId: factId('frac', d),
+    kind: 'fraction',
     question: pick(templates),
     answer: num / d,
     story: 'A medicine cat shares the herb stores carefully.',

@@ -9,7 +9,7 @@ import { lookupStrategy } from './data/strategies.js';
 
 // Engine
 import { pick, weightedPick, newSlotId } from './engine/utils.js';
-import { SR_BUCKET, SAVE_VERSION, ensureFact, applySRResult, histogramBucketFor } from './engine/sr.js';
+import { SR_BUCKET, SAVE_VERSION, ensureFact, applySRResult, histogramBucketFor, personalThreshold, appendSample } from './engine/sr.js';
 import { autoRankForCorrect, rollEligibleChanceRank, getFullName } from './engine/rank.js';
 import { generateProblem } from './engine/generators.js';
 import { normalizeProfile, normalizeToV13 } from './engine/migration.js';
@@ -463,17 +463,27 @@ export default function WarriorsPath() {
         const elapsedMs = problemStartedAt ? (Date.now() - problemStartedAt) : 99999;
         const topic = patrol.type.topic;
 
-        // Record per-problem analytics. SR tracks facts (mult/add); topicStats and the
-        // global elapsed-time histogram cover every problem so geometry/fraction/time
-        // also show up in the parent dashboard.
-        const recordResult = async (isCorrect, kind) => {
+        // Record per-problem analytics. v17 — every problem produces a factId
+        // (the generators all set one), so SR fires on every answer. kind comes
+        // from the problem itself (e.g. 'time-duration', 'geometry') and drives
+        // both the per-kind threshold lookup and the kindSamples ring used for
+        // personal-fast calibration.
+        const problemKind = current.kind;
+        const recordResult = async (isCorrect, outcome) => {
           await updateActive((p) => {
             const next = { ...p };
             if (current.factId) {
               const sr = { ...(p.factsSR || {}) };
               const entry = ensureFact(sr, current.factId);
-              sr[current.factId] = applySRResult(entry, isCorrect, elapsedMs);
+              const personalFastMs = personalThreshold(p, problemKind);
+              sr[current.factId] = applySRResult(entry, isCorrect, elapsedMs, problemKind, personalFastMs);
               next.factsSR = sr;
+            }
+            // Per-kind sample ring — only on correct answers, so personal-fast
+            // reflects "what does she do when she gets it right" rather than
+            // being skewed by struggle-and-give-up timings.
+            if (isCorrect && problemKind) {
+              next.kindSamples = appendSample(p.kindSamples || {}, problemKind, elapsedMs);
             }
             const ts = { ...(p.topicStats || {}) };
             const stats = ts[topic] || { attempted: 0, correct: 0, totalElapsedMs: 0, hintsShown: 0, strategiesShown: 0, reveals: 0 };
@@ -484,7 +494,7 @@ export default function WarriorsPath() {
               totalElapsedMs: stats.totalElapsedMs + elapsedMs,
               hintsShown: stats.hintsShown + (showHint ? 1 : 0),
               strategiesShown: stats.strategiesShown + (showStrategy ? 1 : 0),
-              reveals: stats.reveals + (kind === 'reveal' ? 1 : 0),
+              reveals: stats.reveals + (outcome === 'reveal' ? 1 : 0),
             };
             next.topicStats = ts;
             if (isCorrect) {

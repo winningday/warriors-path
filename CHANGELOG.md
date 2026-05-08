@@ -48,6 +48,54 @@ For design philosophy see [`CLAUDE.md`](./CLAUDE.md).
 
 ---
 
+## [v15.0.0-d] — 2026-05-08
+
+### Changed
+- **Per-kind adaptive SR thresholds.** The original 4s/7s SR gates were
+  calibrated for memorized fluency drills (×, +). Compute-heavy problems
+  (large add/sub, geometry, fractions, time-duration) cannot be answered
+  in 4s by ANY 3rd grader, so under the old global gate they never promoted
+  past Wild — the SR engine stopped doing useful work the moment the patrol
+  topic wasn't pure facts. Each problem kind now has its own threshold;
+  compute-heavy kinds (`speedPromotes:false`) promote on a 3-correct streak
+  instead of speed.
+- **Per-child personal-fast calibration.** Once a player has ≥20 correct
+  samples for a kind, her own P25 of that distribution becomes the personal
+  "fast" threshold. Each kid calibrates herself rather than fighting a
+  fixed gate.
+- `applySRResult` signature extended: `(entry, isCorrect, elapsedMs, kind,
+  personalFastMs)`. Old call sites without `kind` fall back to the legacy
+  4-second gate.
+
+### Added
+- `KIND_THRESHOLDS` map in `src/engine/sr.js` with `fast` / `ok` /
+  `speedPromotes` for each problem kind: mult-drill, mult-word, add-small,
+  sub-small, add-large, sub-large, geometry, fraction, time-clock,
+  time-duration, time-future.
+- `personalThreshold(profile, kind)` and `appendSample(kindSamples, kind, ms)`
+  helpers in `src/engine/sr.js`.
+- New `factId` formats so EVERY problem now produces a fact-tracked SR row:
+  `sub:a-b` (small subtraction by pair), `sub:large` / `add:large` (coarse
+  buckets for two-digit computation), `geo:perimeter:scale` /
+  `geo:area:scale` (scale ∈ small|medium|large), `frac:half` / `frac:third`
+  / `frac:quarter` / `frac:fifth`, `time:clock:grain` /
+  `time:duration:grain` / `time:future:grain`.
+- `parseFactId` extended to return structured `{ kind, ... }` for each new
+  format (e.g. `parseFactId('frac:third') → { kind: 'frac', denom: 3,
+  name: 'third' }`) so the parent dashboard can label every row.
+- `kindSamples` field on the profile — per-kind ring buffer of the last 50
+  correct-answer elapsed-ms values, used for personal-fast calibration.
+- `pickGrain` now returns `{ name, values }` so time generators can thread
+  the grain into the factId.
+
+### Migration
+- `SAVE_VERSION` bumped to 17. Migration is **additive** — old saves
+  receive `kindSamples: {}` and lose nothing. Existing `factsSR` entries
+  for `mult:*` and `add:*` keep working unchanged; the new id formats
+  populate as the player completes problems.
+
+---
+
 ## [v15.0.0-c] — 2026-05-08
 
 ### Fixed
