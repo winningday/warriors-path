@@ -158,8 +158,11 @@ export const StatsView = ({ profile, onBack }) => {
 
   const correctTotal = profile.totalCorrect || 0;
   const attemptedTotal = profile.totalAttempted || 0;
+  const trackedAttempts = history.reduce((s, p) => s + (p.total || 0), 0);
   const avgPerPatrol = history.length ? overview.totalDuration / history.length : 0;
-  const avgPerProblem = attemptedTotal ? overview.totalDuration / attemptedTotal : 0;
+  // Avg time per problem is post-v15c only — lifetime totalAttempted predates timing,
+  // so dividing post-v15c duration by lifetime attempts would understate the average.
+  const avgPerProblem = trackedAttempts ? overview.totalDuration / trackedAttempts : 0;
 
   // ----- Histogram -----
   const histTotal = HISTOGRAM_BUCKETS.reduce((s, b) => s + (hist[b] || 0), 0);
@@ -332,10 +335,21 @@ export const StatsView = ({ profile, onBack }) => {
         {/* PER-FACT TABLE */}
         <SectionHead accent={accent}>PER-FACT BREAKDOWN</SectionHead>
         <div style={{ fontSize: 11, color: '#7a8571', marginBottom: 10, lineHeight: 1.5 }}>
-          Bucket, seen count, and "last" are preserved from older saves. "Right",
-          "Acc.", and "Avg time" track only attempts since v15.0.0-c — earlier
-          attempts didn't record per-attempt outcomes or timing, so those columns
-          show "—" until she answers a fact again.
+          Pre-v15.0.0-c attempts only kept the bucket, the cumulative seen count,
+          and the last-seen date. Outcomes (right/wrong) and times weren't logged
+          for those older attempts.
+          <br />
+          <strong style={{ color: '#a39d88' }}>Seen</strong> shows{' '}
+          <span style={{ color: '#e8dcc0' }}>tracked</span>
+          <span style={{ color: '#5a6155' }}> / lifetime</span> when they differ
+          (e.g. <span style={{ color: '#e8dcc0' }}>1</span><span style={{ color: '#5a6155' }}> / 6</span> means
+          she's seen this fact 6 times total but only 1 has been logged with timing
+          since the upgrade).{' '}
+          <strong style={{ color: '#a39d88' }}>Right</strong>,{' '}
+          <strong style={{ color: '#a39d88' }}>Acc.</strong>, and{' '}
+          <strong style={{ color: '#a39d88' }}>Avg time</strong> are computed over
+          tracked attempts only — they show "—" until she answers the fact again
+          and never get diluted by the un-timed history.
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8, fontSize: 12 }}>
           <span style={{ color: '#7a8571' }}>Show:</span>
@@ -378,7 +392,11 @@ export const StatsView = ({ profile, onBack }) => {
                         {r.bucket.toUpperCase()}
                       </span>
                     </Td>
-                    <Td align="right" mono>{r.seen}</Td>
+                    <Td align="right" mono>
+                      {r.tracked < r.seen
+                        ? <><span style={{ color: '#e8dcc0' }}>{r.tracked}</span><span style={{ color: '#5a6155' }}> / {r.seen}</span></>
+                        : r.seen}
+                    </Td>
                     <Td align="right" mono color={r.tracked === 0 ? '#5a6155' : '#c8c0a8'}>
                       {r.tracked === 0 ? '—' : r.correct}
                     </Td>
