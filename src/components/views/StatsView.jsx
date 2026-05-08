@@ -174,11 +174,15 @@ export const StatsView = ({ profile, onBack }) => {
       if (!showAllFacts && seen === 0) continue;
       const correct = e.correctCount || 0;
       const wrong = e.wrongCount || 0;
-      const acc = seen ? correct / seen : null;
-      const avgMs = correct ? (e.totalCorrectMs || 0) / correct : null;
+      // Pre-v15c saves preserved `seen` but never tracked correct/wrong/elapsed.
+      // Compute accuracy and avg time only over the analytics-era sample so
+      // we don't show "0%" for a fact she's actually been answering correctly.
+      const tracked = correct + wrong;
+      const acc = tracked > 0 ? correct / tracked : null;
+      const avgMs = correct > 0 ? (e.totalCorrectMs || 0) / correct : null;
       rows.push({
         id, label: factLabel(id), bucket: e.bucket || SR_BUCKET.WILD,
-        seen, correct, wrong, acc, avgMs, lastSeenAt: e.lastSeenAt,
+        seen, correct, wrong, tracked, acc, avgMs, lastSeenAt: e.lastSeenAt,
       });
     }
     if (factSort === 'hardest') {
@@ -327,6 +331,12 @@ export const StatsView = ({ profile, onBack }) => {
 
         {/* PER-FACT TABLE */}
         <SectionHead accent={accent}>PER-FACT BREAKDOWN</SectionHead>
+        <div style={{ fontSize: 11, color: '#7a8571', marginBottom: 10, lineHeight: 1.5 }}>
+          Bucket, seen count, and "last" are preserved from older saves. "Right",
+          "Acc.", and "Avg time" track only attempts since v15.0.0-c — earlier
+          attempts didn't record per-attempt outcomes or timing, so those columns
+          show "—" until she answers a fact again.
+        </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8, fontSize: 12 }}>
           <span style={{ color: '#7a8571' }}>Show:</span>
           <FilterChip active={factKind === 'mult'} onClick={() => setFactKind('mult')}>multiplication</FilterChip>
@@ -369,7 +379,9 @@ export const StatsView = ({ profile, onBack }) => {
                       </span>
                     </Td>
                     <Td align="right" mono>{r.seen}</Td>
-                    <Td align="right" mono>{r.correct}</Td>
+                    <Td align="right" mono color={r.tracked === 0 ? '#5a6155' : '#c8c0a8'}>
+                      {r.tracked === 0 ? '—' : r.correct}
+                    </Td>
                     <Td align="right" mono color={r.acc == null ? '#5a6155' : r.acc >= 0.85 ? '#7a9d6a' : r.acc < 0.6 ? '#d97642' : '#c8c0a8'}>
                       {r.acc == null ? '—' : `${Math.round(r.acc * 100)}%`}
                     </Td>
