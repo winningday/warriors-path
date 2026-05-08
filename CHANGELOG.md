@@ -11,6 +11,35 @@ For design philosophy see [`CLAUDE.md`](./CLAUDE.md).
 
 ## [Unreleased]
 
+### Added — dashboard rework (parent-utility)
+- **Hot list** at the top of the Keeper's Record. Top 5 weakest tracked
+  facts across all topics, scored by `(1 - accuracy) × log(1 + tracked)`,
+  filtered to facts with ≥3 real attempts. Each row shows recent stats
+  ("1 of 4 right since tracking, avg 12s") plus a parent-actionable
+  coaching note — a strategy from `lookupStrategy()` for mult/add facts,
+  or a parser-derived generic note for sub/geo/frac/time. Renders
+  topic-level callouts when a whole topic is below 60% accuracy.
+- **Strengths** panel — top 5 most automatic facts (acc ≥ 90%, tracked ≥
+  5), sorted by bucket and avg time. Folds a multiplication factor into
+  a single row when she has 4+ strong items in the same family
+  (e.g. "× 10 family — all instant").
+- **Pacing flags** — explicit calibration warnings drawn from the last 5
+  patrols of each type. Catches "too easy" (avg duration < 3 min, acc ≥
+  85%), "too hard" (avg > 25 min, acc < 60%), and "leaning on hints" (>
+  50% of attempts trigger a strategy or reveal).
+- **7-day trend** — per-topic accuracy and avg time, this week vs last,
+  with arrow + colored delta. Renders a "trends will appear after a
+  week" placeholder when patrolHistory is too short.
+- **Per-fact breakdown** extended from 2 tabs (mult / add) to 6
+  (mult / add / sub / geo / frac / time). Empty tabs render a friendly
+  "no data yet — she'll populate this with her next patrol" placeholder.
+- **Developer calibration panel** at the bottom of the dashboard.
+  Per-kind P25 / P50 / P75 from `profile.kindSamples` (added by the
+  parallel SR engine PR), rendered alongside the baked-in fast/ok
+  thresholds with annotations like "calibrated OK", "fast threshold may
+  be too tight", "fast threshold may be too generous", or "(collecting —
+  using baked-in default)" while sample count < 20.
+
 ### Planned
 - v15b — mastery-gated topic progression. Topics unlock by demonstrated
   competence (≥70% Tracking+ for unlock, ≥80% Trusted for mastery), not by
