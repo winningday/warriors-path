@@ -8,7 +8,7 @@ import { CLANS } from '../../data/clans.js';
 import { PATROLS } from '../../data/ranks.js';
 import { getFullName, getRankInfo, getMentorTitle, isMedicinePath } from '../../engine/rank.js';
 
-export const DenView = ({ profile, slotsCount, onStartPatrol, onSwitchCharacter, onOpenFlashcards, onExport, onImport }) => {
+export const DenView = ({ profile, slotsCount, onStartPatrol, onSwitchCharacter, onOpenFlashcards, onOpenStats, onExport, onImport }) => {
   const clan = CLANS.find((c) => c.name === profile.clan);
   const fullName = getFullName(profile);
   const { current, next } = getRankInfo(profile);
@@ -140,6 +140,25 @@ export const DenView = ({ profile, slotsCount, onStartPatrol, onSwitchCharacter,
           <button onClick={onSwitchCharacter} style={{ ...smallBtn, width: '100%', display: 'block' }}>
             {slotsCount > 1 ? 'switch to another Clan cat' : 'add another Clan cat'}
           </button>
+        </div>
+
+        {/* Discreet parent-dashboard handle. The decorative line below looks like a footer
+            ornament, but the centre dot is clickable. No hover state, no cursor change,
+            no affordance. Daughter ignores it; parent knows where to tap. */}
+        <div style={{
+          textAlign: 'center', marginTop: 20, paddingBottom: 6,
+          fontSize: 10, color: '#3a4339', letterSpacing: '0.4em',
+          fontFamily: "'Crimson Text', serif", userSelect: 'none',
+        }}>
+          ·  ·  ·
+          <span
+            onClick={onOpenStats}
+            style={{ display: 'inline-block', padding: '0 8px', color: '#3a4339' }}
+            aria-hidden="true"
+          >
+            ⟡
+          </span>
+          ·  ·  ·
         </div>
       </div>
     </div>

@@ -35,6 +35,16 @@ Anything actively being built lives in a Git branch + commits, not here.
 - ✓ **v15a** — multi-file split: 2,975-line monolith → 33 modules under `src/`.
   Vite build pipeline. GitHub Action auto-deploys to VPS via rsync. Caddy
   serves on port 80 (no domain required). Site live on the VPS.
+- ✓ **v15.0.0-c — Hint fixes + parent dashboard** — strategy hints rewritten
+  to teach the technique without computing the answer; thin first-pass hints
+  ("Add the numbers." / "Tens first, then ones." / "Subtract carefully…")
+  replaced with procedural guidance. Hidden Keeper's Record dashboard
+  reachable via discreet ornament at the bottom of the Den: overview,
+  by-topic accuracy + avg time, speed histogram (validates 4s/7s SR
+  thresholds), per-fact breakdown (sortable), last 20 patrols with hint /
+  strategy / reveal counts. SAVE_VERSION 16 — additive migration; per-fact
+  counters, `topicStats`, `patrolHistory`, `elapsedHistogram`, `bestStreak`
+  added with zero defaults for older saves.
 - ✓ **v15.0.0-b — Vigil patrol (time)** — fifth patrol covering 3rd-grade time.
   Three problem kinds: clock reading (analog `ClockFace` SVG, the "twoleg
   sun-face"), duration math ("vigil began at 9:35, ended at 11:00 — how

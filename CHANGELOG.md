@@ -19,6 +19,45 @@ For design philosophy see [`CLAUDE.md`](./CLAUDE.md).
 
 ---
 
+## [v15.0.0-c] — 2026-05-08
+
+### Fixed
+- **Strategy hints no longer give the answer.** Previous "MENTOR'S STRATEGY"
+  lines collapsed to the answer (e.g. ×2 said "${b} doubled is ${b * 2}",
+  hard decompositions ended in `= 42` / `= 56` / etc., ×11 wrote the digit
+  twice as the literal product). Rewrites teach the path without computing
+  the destination — the player still has to walk it.
+- **First-pass hints replaced with substantive procedural guidance.** Old
+  hints like `Add the numbers.`, `Tens first, then ones.`, and
+  `Subtract carefully — borrow if needed.` were too thin to teach. New hints
+  walk the player through count-up-from / make-a-ten / column-with-borrow
+  reasoning.
+
+### Added
+- **Hidden parent dashboard** (the "Keeper's Record"). Discreet ornament at
+  the bottom of the Den view opens a stats screen the daughter doesn't
+  notice. Sections: lifetime overview, by-topic accuracy + avg time, speed
+  histogram (correct-answer time buckets to validate the 4s/7s SR
+  thresholds), per-fact breakdown (sortable by hardest / slowest / most
+  seen / recent / fact), recent patrols (last 20 with hints / strategies /
+  reveals per patrol).
+- Per-fact analytics now persisted in `factsSR`: `correctCount`,
+  `wrongCount`, `totalElapsedMs`, `totalCorrectMs`, `firstSeenAt`.
+- `topicStats` keyed by topic — covers geometry / fractions / time
+  (non-SR-tracked topics) so the dashboard reports them too.
+- `patrolHistory` (rolling last 200) — start/end timestamps, duration,
+  topic, score, hint / strategy / reveal counts per patrol.
+- `elapsedHistogram` — bucketed correct-answer times across all problems
+  for threshold calibration.
+- `bestStreak` field tracks the all-time best daily streak.
+
+### Changed
+- `SAVE_VERSION` bumped to 16. Migration is **additive** — old saves
+  receive zero-value defaults for the new analytics fields and lose no
+  data.
+
+---
+
 ## [v15.0.0-b] — 2026-04-28
 
 ### Added
