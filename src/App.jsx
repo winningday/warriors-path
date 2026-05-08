@@ -9,7 +9,7 @@ import { lookupStrategy } from './data/strategies.js';
 
 // Engine
 import { pick, weightedPick, newSlotId } from './engine/utils.js';
-import { SR_BUCKET, SAVE_VERSION, ensureFact, applySRResult } from './engine/sr.js';
+import { SR_BUCKET, SAVE_VERSION, ensureFact, applySRResult, histogramBucketFor } from './engine/sr.js';
 import { autoRankForCorrect, rollEligibleChanceRank, getFullName } from './engine/rank.js';
 import { generateProblem } from './engine/generators.js';
 import { normalizeProfile, normalizeToV13 } from './engine/migration.js';
@@ -34,6 +34,7 @@ import { PatrolView } from './components/views/PatrolView.jsx';
 import { CompleteView } from './components/views/CompleteView.jsx';
 import { StoryPromptView } from './components/views/StoryPromptView.jsx';
 import { FlashcardsView } from './components/views/FlashcardsView.jsx';
+import { StatsView } from './components/views/StatsView.jsx';
 
 // =====================================================================
 // MAIN COMPONENT
@@ -50,6 +51,7 @@ export default function WarriorsPath() {
   const [storyPrompt, setStoryPrompt] = useState(null);
   const [storyDraft, setStoryDraft] = useState('');
   const [problemStartedAt, setProblemStartedAt] = useState(null);
+  const [patrolStartedAt, setPatrolStartedAt] = useState(null);
   const [pendingCeremony, setPendingCeremony] = useState(null);
 
   const profile = container && container.slots.find((s) => s.id === container.activeId);
@@ -156,16 +158,34 @@ export default function WarriorsPath() {
   const finishPatrol = async (correct, rewards) => {
     const today = new Date().toDateString();
     const isNewDay = profile.lastPlayed !== today;
+    const endedAt = Date.now();
+    const startedAt = patrolStartedAt || endedAt;
+    const historyEntry = {
+      startedAt,
+      endedAt,
+      durationMs: endedAt - startedAt,
+      topic: patrol.type.topic,
+      patrolId: patrol.type.id,
+      total: patrol.problems.length,
+      correct,
+      hintsShown: patrol.hintsShown || 0,
+      strategiesShown: patrol.strategiesShown || 0,
+      reveals: patrol.reveals || 0,
+    };
+
     const updated = await updateActive((p) => {
+      const newStreak = isNewDay ? (p.streak || 0) + 1 : (p.streak || 0);
       const next = {
         ...p,
         totalCorrect: p.totalCorrect + correct,
         totalAttempted: p.totalAttempted + patrol.problems.length,
         preyCaught: { ...(p.preyCaught || {}) },
         herbsCaught: { ...(p.herbsCaught || {}) },
-        streak: isNewDay ? (p.streak || 0) + 1 : p.streak,
+        streak: newStreak,
+        bestStreak: Math.max(p.bestStreak || 0, newStreak),
         lastPlayed: today,
         patrolsToday: isNewDay ? 1 : (p.patrolsToday || 0) + 1,
+        patrolHistory: [...(p.patrolHistory || []), historyEntry].slice(-200),
       };
       rewards.prey.forEach((x) => { next.preyCaught[x] = (next.preyCaught[x] || 0) + 1; });
       rewards.herbs.forEach((x) => { next.herbsCaught[x] = (next.herbsCaught[x] || 0) + 1; });
@@ -323,16 +343,28 @@ export default function WarriorsPath() {
       slotsCount={container ? container.slots.length : 0}
       onStartPatrol={(patrolType) => {
         const problems = Array.from({ length: 5 }, () => generateProblem(patrolType.topic, profile));
-        setPatrol({ type: patrolType, problems, currentIdx: 0, correct: 0, rewards: { prey: [], herbs: [], borders: 0, training: 0, vigils: 0 }, attempts: 0 });
+        setPatrol({
+          type: patrolType, problems, currentIdx: 0, correct: 0,
+          rewards: { prey: [], herbs: [], borders: 0, training: 0, vigils: 0 },
+          attempts: 0,
+          hintsShown: 0, strategiesShown: 0, reveals: 0,
+        });
         setAnswerInput(''); setFeedback(null); setShowHint(false); setShowStrategy(false);
-        setProblemStartedAt(Date.now());
+        const now = Date.now();
+        setProblemStartedAt(now);
+        setPatrolStartedAt(now);
         setView('patrol');
       }}
       onOpenFlashcards={() => setView('flashcards')}
+      onOpenStats={() => setView('stats')}
       onSwitchCharacter={() => setView('slots')}
       onExport={exportProfile}
       onImport={importProfile}
     />;
+  }
+
+  if (view === 'stats') {
+    return <StatsView profile={profile} onBack={() => setView('den')} />;
   }
 
   if (view === 'flashcards') {
@@ -400,7 +432,12 @@ export default function WarriorsPath() {
       setAnswerInput={setAnswerInput}
       feedback={feedback}
       showHint={showHint}
-      setShowHint={setShowHint}
+      setShowHint={(v) => {
+        if (v && !showHint) {
+          setPatrol((p) => p ? { ...p, hintsShown: (p.hintsShown || 0) + 1 } : p);
+        }
+        setShowHint(v);
+      }}
       showStrategy={showStrategy}
       strategy={current.factId ? lookupStrategy(current.factId, current.factA, current.factB) : null}
       clanAccent={clan.accent}
@@ -424,19 +461,44 @@ export default function WarriorsPath() {
           }
         }
         const elapsedMs = problemStartedAt ? (Date.now() - problemStartedAt) : 99999;
+        const topic = patrol.type.topic;
 
-        const recordSR = async (isCorrect) => {
-          if (!current.factId) return;
+        // Record per-problem analytics. SR tracks facts (mult/add); topicStats and the
+        // global elapsed-time histogram cover every problem so geometry/fraction/time
+        // also show up in the parent dashboard.
+        const recordResult = async (isCorrect, kind) => {
           await updateActive((p) => {
-            const sr = { ...(p.factsSR || {}) };
-            const entry = ensureFact(sr, current.factId);
-            sr[current.factId] = applySRResult(entry, isCorrect, elapsedMs);
-            return { ...p, factsSR: sr };
+            const next = { ...p };
+            if (current.factId) {
+              const sr = { ...(p.factsSR || {}) };
+              const entry = ensureFact(sr, current.factId);
+              sr[current.factId] = applySRResult(entry, isCorrect, elapsedMs);
+              next.factsSR = sr;
+            }
+            const ts = { ...(p.topicStats || {}) };
+            const stats = ts[topic] || { attempted: 0, correct: 0, totalElapsedMs: 0, hintsShown: 0, strategiesShown: 0, reveals: 0 };
+            ts[topic] = {
+              ...stats,
+              attempted: stats.attempted + 1,
+              correct: stats.correct + (isCorrect ? 1 : 0),
+              totalElapsedMs: stats.totalElapsedMs + elapsedMs,
+              hintsShown: stats.hintsShown + (showHint ? 1 : 0),
+              strategiesShown: stats.strategiesShown + (showStrategy ? 1 : 0),
+              reveals: stats.reveals + (kind === 'reveal' ? 1 : 0),
+            };
+            next.topicStats = ts;
+            if (isCorrect) {
+              const hist = { ...(p.elapsedHistogram || {}) };
+              const bucket = histogramBucketFor(elapsedMs);
+              hist[bucket] = (hist[bucket] || 0) + 1;
+              next.elapsedHistogram = hist;
+            }
+            return next;
           });
         };
 
         if (num === current.answer) {
-          await recordSR(true);
+          await recordResult(true, 'correct');
           const reward = buildCorrectReward(patrol.type, profile);
           setFeedback({ type: 'correct', praise: pick(PRAISE), ...reward });
           const nextIdx = patrol.currentIdx + 1;
@@ -474,25 +536,31 @@ export default function WarriorsPath() {
           }, 1500);
         } else {
           if (patrol.attempts >= 1) {
-            await recordSR(false);
+            await recordResult(false, 'reveal');
             const revealAnswer = isTime
               ? `${Math.floor(current.answer / 60)}:${String(current.answer % 60).padStart(2, '0')}`
               : current.answer;
             setFeedback({ type: 'reveal', text: `${pick(REVEAL_LINES)} The answer was ${revealAnswer}.` });
             const nextIdx = patrol.currentIdx + 1;
+            const updatedPatrol = { ...patrol, reveals: (patrol.reveals || 0) + 1 };
             setTimeout(() => {
               if (nextIdx >= patrol.problems.length) {
-                finishPatrol(patrol.correct, patrol.rewards);
+                finishPatrol(updatedPatrol.correct, updatedPatrol.rewards);
               } else {
-                setPatrol({ ...patrol, currentIdx: nextIdx, attempts: 0 });
+                setPatrol({ ...updatedPatrol, currentIdx: nextIdx, attempts: 0 });
                 setAnswerInput(''); setFeedback(null); setShowHint(false); setShowStrategy(false);
                 setProblemStartedAt(Date.now());
               }
             }, 2400);
           } else {
-            setPatrol({ ...patrol, attempts: patrol.attempts + 1 });
+            const showStrat = !!current.factId;
+            setPatrol({
+              ...patrol,
+              attempts: patrol.attempts + 1,
+              strategiesShown: (patrol.strategiesShown || 0) + (showStrat ? 1 : 0),
+            });
             setFeedback({ type: 'try_again', text: 'Not quite. Try again.' });
-            setShowStrategy(!!current.factId);
+            setShowStrategy(showStrat);
             setAnswerInput('');
           }
         }

@@ -66,7 +66,7 @@ const genAdd = (profile) => {
       `Two apprentices each share their catch — ${a} from one, ${b} from the other. How many altogether?`,
       `You catch ${a} prey in the morning. You catch ${b} more in the afternoon. How many for the day?`,
     ];
-    return { factId: id, factA: a, factB: b, kind: 'add-small', question: `${a} + ${b}`, answer: a + b, story: pick(stories), hint: `Add the numbers.` };
+    return { factId: id, factA: a, factB: b, kind: 'add-small', question: `${a} + ${b}`, answer: a + b, story: pick(stories), hint: `Start at ${Math.max(a, b)} and count up by ${Math.min(a, b)} more.` };
   }
   if (mode < 0.7) {
     const start = randInt(6, 14);
@@ -78,7 +78,7 @@ const genAdd = (profile) => {
       `You carry ${start} sparrows to the camp. ${give} are claimed by the warriors. How many remain for the apprentices?`,
       `You begin the day with ${start} fresh-caught voles. ${give} go straight to the medicine cat for sick cats. How many for the rest of the Clan?`,
     ];
-    return { factId: id, factA: give, factB: start - give, kind: 'sub-small', question: `${start} − ${give}`, answer: start - give, story: pick(stories), hint: `Take ${give} away from ${start}.` };
+    return { factId: id, factA: give, factB: start - give, kind: 'sub-small', question: `${start} − ${give}`, answer: start - give, story: pick(stories), hint: `Count back from ${start} by ${give}. Or think: ${give} plus what makes ${start}?` };
   }
   if (Math.random() < 0.5) {
     const a = randInt(20, 80);
@@ -88,7 +88,7 @@ const genAdd = (profile) => {
       `In greenleaf, your Clan added ${a} prey to the pile. In the next half-moon, ${b} more. How many in total?`,
       `Across many sunrises, the apprentices brought back ${a} small birds. The warriors brought back ${b}. How many altogether?`,
     ];
-    return { factId: null, kind: 'add-large', question: `${a} + ${b}`, answer: a + b, story: pick(stories), hint: `Tens first, then ones.` };
+    return { factId: null, kind: 'add-large', question: `${a} + ${b}`, answer: a + b, story: pick(stories), hint: `Stack them in your head. Add the tens column, then the ones column. If the ones make 10 or more, carry one to the tens.` };
   }
   const big = randInt(40, 120);
   const small = randInt(10, big - 5);
@@ -97,7 +97,7 @@ const genAdd = (profile) => {
     `Your Clan begins leaf-fall with ${big} stored herbs. Over many days, ${small} are used. How many remain?`,
     `By the end of greenleaf, the Clan had added ${big} prey to the pile. ${small} fed the elders and queens. How many were left for the warriors?`,
   ];
-  return { factId: null, kind: 'sub-large', question: `${big} − ${small}`, answer: big - small, story: pick(stories), hint: `Subtract carefully — borrow if needed.` };
+  return { factId: null, kind: 'sub-large', question: `${big} − ${small}`, answer: big - small, story: pick(stories), hint: `Stack them with the bigger number on top. Subtract the ones column first; if the top digit is smaller, borrow 10 from the tens column.` };
 };
 
 const genGeometry = (profile) => {
