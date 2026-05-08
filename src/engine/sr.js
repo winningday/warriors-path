@@ -5,16 +5,55 @@
 
 export const SAVE_VERSION = 17;
 
-// Bucketed elapsed-time histogram for the parent dashboard. Lets us see whether
-// the SR_FAST_MS / SR_OK_MS thresholds are well-calibrated for this player.
-export const HISTOGRAM_BUCKETS = ['under2s', '2to4s', '4to7s', '7to10s', '10to20s', 'over20s'];
+// Bucketed elapsed-time histogram for the parent dashboard.
+//
+// v15.0.0-e — rebucketed. The previous 6 buckets (<2s / 2-4s / 4-7s / 7-10s /
+// 10-20s / >20s) were calibrated for the old global 4s/7s SR gates and didn't
+// stretch far enough to make sense for compute-heavy kinds where 30-60s
+// answers are normal. The new 9-bucket array covers the realistic span from
+// instant fluency (<1s) to long word-problem multi-step (>90s), with finer
+// resolution at the fast end where the fluency story matters.
+export const HISTOGRAM_BUCKETS = [
+  'under1s', '1to2s', '2to3s', '3to5s',
+  '5to10s', '10to20s', '20to45s', '45to90s', 'over90s',
+];
+
+// Inclusive lower bound, exclusive upper bound, for each bucket. Used by the
+// dashboard to color buckets relative to a kind's fast/ok thresholds.
+export const HISTOGRAM_BUCKET_RANGES = {
+  under1s:  [0,      1000],
+  '1to2s':  [1000,   2000],
+  '2to3s':  [2000,   3000],
+  '3to5s':  [3000,   5000],
+  '5to10s': [5000,   10000],
+  '10to20s':[10000,  20000],
+  '20to45s':[20000,  45000],
+  '45to90s':[45000,  90000],
+  over90s:  [90000,  Infinity],
+};
+
 export const histogramBucketFor = (ms) => {
-  if (ms < 2000) return 'under2s';
-  if (ms < 4000) return '2to4s';
-  if (ms < 7000) return '4to7s';
-  if (ms < 10000) return '7to10s';
+  if (ms < 1000)  return 'under1s';
+  if (ms < 2000)  return '1to2s';
+  if (ms < 3000)  return '2to3s';
+  if (ms < 5000)  return '3to5s';
+  if (ms < 10000) return '5to10s';
   if (ms < 20000) return '10to20s';
-  return 'over20s';
+  if (ms < 45000) return '20to45s';
+  if (ms < 90000) return '45to90s';
+  return 'over90s';
+};
+
+// Compute a histogram from a flat array of elapsed-ms samples. Returns
+// { [bucketKey]: count } with all bucket keys present (zero for empty buckets).
+export const computeHistogram = (samples) => {
+  const out = HISTOGRAM_BUCKETS.reduce((m, b) => { m[b] = 0; return m; }, {});
+  if (!Array.isArray(samples)) return out;
+  for (const ms of samples) {
+    if (typeof ms !== 'number' || !isFinite(ms) || ms < 0) continue;
+    out[histogramBucketFor(ms)] += 1;
+  }
+  return out;
 };
 
 export const SR_BUCKET = { WILD: 'wild', TRACKING: 'tracking', TRUSTED: 'trusted' };
