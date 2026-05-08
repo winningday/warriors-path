@@ -2,8 +2,8 @@ import { ranksFor, PATH_MEDICINE, PATH_WARRIOR } from '../data/ranks.js';
 import { newSlotId } from './utils.js';
 import { SAVE_VERSION, HISTOGRAM_BUCKETS } from './sr.js';
 
-// Bring a single profile up to the current shape. Used for v12/v13/v14/v15→v16 migration and
-// defensive normalization of imported saves.
+// Bring a single profile up to the current shape. Used for v12..v16→v17 migration
+// and defensive normalization of imported saves.
 //
 // Migration philosophy:
 //   - Preserve player-authored data EXACTLY: prefix, suffix, totalCorrect, totalAttempted,
@@ -13,6 +13,10 @@ import { SAVE_VERSION, HISTOGRAM_BUCKETS } from './sr.js';
 //     correct answers (fixes the v13 bug where 32/35 displayed as "60 of 35").
 //   - v16 added analytics fields (per-fact counters, topicStats, patrolHistory,
 //     elapsedHistogram). All additive — old saves get zero defaults.
+//   - v17 adds `kindSamples` for per-kind personal-fast calibration. Empty {}
+//     for older saves; populated as the player completes problems. Existing
+//     factsSR entries (mult:*, add:*) keep working unchanged — we only ADD
+//     new id formats (sub:a-b, geo:*, frac:*, time:*).
 
 const emptyHistogram = () => HISTOGRAM_BUCKETS.reduce((m, b) => { m[b] = 0; return m; }, {});
 
@@ -67,6 +71,24 @@ const normalizeHistogram = (raw) => {
   if (!raw || typeof raw !== 'object') return base;
   for (const b of HISTOGRAM_BUCKETS) base[b] = raw[b] || 0;
   return base;
+};
+
+// v17 — per-kind elapsed-ms ring buffer, used by personalThreshold() to
+// calibrate the personal-fast cutoff once we have ≥20 samples for a kind.
+// Older saves don't have this; we initialize an empty object and the engine
+// fills it on subsequent correct answers. Cap each ring at 50 samples.
+const KIND_SAMPLES_MAX = 50;
+const normalizeKindSamples = (raw) => {
+  if (!raw || typeof raw !== 'object') return {};
+  const out = {};
+  for (const [kind, e] of Object.entries(raw)) {
+    if (!e || typeof e !== 'object') continue;
+    const samples = Array.isArray(e.samples)
+      ? e.samples.filter((n) => typeof n === 'number' && isFinite(n) && n >= 0).slice(-KIND_SAMPLES_MAX)
+      : [];
+    out[kind] = { samples, count: typeof e.count === 'number' ? e.count : samples.length };
+  }
+  return out;
 };
 
 const normalizePatrolHistory = (raw) => {
@@ -144,6 +166,8 @@ export const normalizeProfile = (raw) => {
     topicStats: normalizeTopicStats(raw.topicStats),
     patrolHistory: normalizePatrolHistory(raw.patrolHistory),
     elapsedHistogram: normalizeHistogram(raw.elapsedHistogram),
+    // v17 — per-kind sample ring for personal-fast calibration. Empty for older saves.
+    kindSamples: normalizeKindSamples(raw.kindSamples),
   };
 };
 
