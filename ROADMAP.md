@@ -311,6 +311,14 @@ now feedback only happens when she remembers to bring it up.
 - ✗ **Real-time multiplayer** — no.
 - ✗ **`deploy.sh` script** — superseded by GitHub Action; would duplicate
   effort and add another credential surface (laptop SSH key in deploy code).
+- ✗ **Integrating `sysdr/aie/day21/learning-path-generator`** — investigated
+  May 2026. That repo is a course tutorial (FastAPI + Postgres + Redis + Docker
+  + Gemini API), not a library. Stack mismatch (we're 100% client-side),
+  collaborative filtering needs many users (single player), adaptive difficulty
+  is already solved by v15.0.0-d's per-kind SR. Only transferable concept is
+  topological-sort prerequisite resolution, which fits the existing v15b
+  mastery-gating plan as ~15 lines in `src/engine/mastery.js`. Build v15b
+  directly; do not import from that repo.
 
 ---
 
