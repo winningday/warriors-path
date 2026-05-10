@@ -11,6 +11,45 @@ For design philosophy see [`CLAUDE.md`](./CLAUDE.md).
 
 ## [Unreleased]
 
+### Added — v15.0.0-g cat customization (Phase 2)
+- **Equip trinkets to the cat's body.** Five wearable slots: `ear`,
+  `mouth`, `back`, `leg`, `nose`. Player picks which collected trinket
+  to display in each slot from a new **DecorateView** screen reachable
+  via a "⟡ DECORATE YOUR CAT ⟡" button at the top of the Your Nest panel.
+- The Den's cat portrait and the Decorate view's live preview both
+  render the equipped overlays at slot-specific positions on the
+  100×100 cat viewBox (with gentle per-slot rotation so trinkets feel
+  placed, not floating).
+- **Image-art support carries through.** A trinket with `imageSrc` set
+  renders via SVG `<image>` on the cat (PNG/SVG/WebP all work the same
+  way it did in Your Nest), so the daughter's Procreate art will appear
+  on the cat the moment she drops in `public/trinkets/<id>.png`.
+- Decorate view's picker UI is **one card per slot**, each card
+  showing every owned trinket in that slot as a tappable chip
+  (icon + short name + count). Tapping a chip equips it; tapping the
+  already-equipped chip — or the inline "clear" link — unequips it.
+- Empty slots show a friendly placeholder per slot
+  (*"No ear trinkets in your collection yet."*).
+
+### Migration
+- `SAVE_VERSION` bumped to 19. **Additive only** — older saves get
+  `equipped: { ear:null, mouth:null, back:null, leg:null, nose:null }`
+  defaulted; nothing is lost.
+
+### Files
+- `src/components/views/DecorateView.jsx` (new) — picker UI
+- `src/components/art/CatPortrait.jsx` — new `equipped` prop with slot
+  overlay rendering (inline SVG or `<image>` per slot)
+- `src/components/art/TrinketIcon.jsx` — exported the
+  `TRINKET_ICONS` map so CatPortrait can render the same shapes inline
+- `src/engine/migration.js`, `src/engine/sr.js` — v19 schema additions
+  (`normalizeEquipped`)
+- `src/components/views/DenView.jsx` — DECORATE button + threaded
+  `equipped` through to CatPortrait
+- `src/App.jsx` — `decorate` view route + `onEquip` handler
+
+
+
 ### Added — v15.0.0-f trinket art + slot architecture
 - **SVG icon for every trinket.** New `TrinketIcon` component with 28
   hand-tuned SVG icons matching the existing CatPortrait/PreyIcon style

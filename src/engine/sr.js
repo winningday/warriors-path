@@ -3,7 +3,7 @@
 //   Tracking — answered correctly once or twice; ~30%
 //   Trusted  — 3+ in a row correct & fast; ~10% (review only)
 
-export const SAVE_VERSION = 18;
+export const SAVE_VERSION = 19;
 
 // Bucketed elapsed-time histogram for the parent dashboard.
 //

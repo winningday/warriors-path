@@ -1,4 +1,5 @@
 import React from 'react';
+import { TRINKET_ICONS } from './TrinketIcon.jsx';
 
 const furColorToHex = (name) => ({
   Black: '#1c1c1c',
@@ -10,9 +11,40 @@ const furColorToHex = (name) => ({
   Tortoiseshell: '#3a2a20',
 }[name] || '#3a4339');
 
+// v19 — slot positions on the 100×100 cat viewBox. Each slot has a center
+// point and a rotation (degrees), so the trinket icon can be placed and
+// gently tilted to feel like it belongs on that body part instead of
+// floating. The icon is drawn at TRINKET_SIZE in its own 32×32 box,
+// translated so its center lands on the slot's (x, y).
+const TRINKET_SIZE = 22; // pixels in the 100-unit viewBox
+const HALF = TRINKET_SIZE / 2;
+const SLOT_POSITIONS = {
+  ear:   { x: 42, y: 22, rotate: -18 },  // left ear, slight outward tilt
+  nose:  { x: 50, y: 45, rotate: 0  },   // dead-center over the muzzle
+  mouth: { x: 50, y: 55, rotate: 0  },   // just below the nose, in the chin area
+  back:  { x: 65, y: 56, rotate: 8  },   // shoulder/upper back
+  leg:   { x: 38, y: 80, rotate: -6 },   // front left leg, near the foot
+};
+
 // Cat silhouette that grows/changes with rank. Kit/Apprentice are smaller; Warrior+ stands taller;
 // Leader has the star marking; Deputy has the shoulder stripe; Medicine cats have a leaf collar.
-export const CatPortrait = ({ rank, accent = '#d97642', furColor = '#2a3329', size = 96 }) => {
+//
+// v19 — accepts an optional `equipped` map ({ ear, nose, mouth, back, leg })
+// where each value is either:
+//   - a trinket id string (looked up in TRINKET_ICONS for the SVG fallback)
+//   - { id, imageSrc } so a hand-drawn image is rendered via <image href>
+//   - null/undefined (slot empty)
+export const CatPortrait = ({
+  rank, accent = '#d97642', furColor = '#2a3329', size = 96,
+  equipped = null,
+}) => {
+  // Normalize the equipped map to { slot: { id, imageSrc } | null }.
+  const slotEntries = !equipped ? {} : Object.entries(equipped).reduce((m, [s, v]) => {
+    if (!v) m[s] = null;
+    else if (typeof v === 'string') m[s] = { id: v, imageSrc: null };
+    else if (typeof v === 'object') m[s] = { id: v.id, imageSrc: v.imageSrc || null };
+    return m;
+  }, {});
   const isKitLike = rank === 'Kit' || rank === 'Apprentice' || rank === 'Medicine Cat Apprentice';
   const isLeader = rank === 'Leader';
   const isDeputy = rank === 'Deputy';
@@ -58,6 +90,32 @@ export const CatPortrait = ({ rank, accent = '#d97642', furColor = '#2a3329', si
           </g>
         )}
       </g>
+      {/* v19 — equipped trinkets overlay. Drawn OUTSIDE the kit-scale group
+          so they always render at the same size regardless of rank. Each
+          slot has a fixed position; the trinket fills a 32×32 box that
+          we scale down to TRINKET_SIZE units and gently tilt to feel
+          like it belongs on the body part. */}
+      {Object.entries(SLOT_POSITIONS).map(([slot, pos]) => {
+        const entry = slotEntries[slot];
+        if (!entry) return null;
+        const scale = TRINKET_SIZE / 32;
+        const xform = `translate(${pos.x - HALF}, ${pos.y - HALF}) scale(${scale}) rotate(${pos.rotate} 16 16)`;
+        if (entry.imageSrc) {
+          // Hand-drawn art: render as <image>. SVG handles PNG/SVG/WebP fine.
+          return (
+            <g key={slot} transform={xform}>
+              <image href={entry.imageSrc} x="0" y="0" width="32" height="32" />
+            </g>
+          );
+        }
+        const renderInner = TRINKET_ICONS[entry.id];
+        if (!renderInner) return null;
+        return (
+          <g key={slot} transform={xform}>
+            {renderInner()}
+          </g>
+        );
+      })}
     </svg>
   );
 };
