@@ -58,9 +58,28 @@ audited against one question: _does this make her want to play tomorrow?_
   own suffix (Mossheart, Mossfire, Mossfoot…). The Leader ceremony has the
   medicine cat walk her to the Moonstone for her first communion with
   StarClan.
+- **Per-kind adaptive SR thresholds.** v15.0.0-d retired the global 4-second
+  promotion gate in favor of per-problem-kind thresholds; once ≥20 correct
+  samples accumulate for a kind, the player's own P25 becomes her personal-fast
+  cutoff. Each kid calibrates herself.
+- **Hidden parent dashboard.** A discreet ornament at the bottom of the Den
+  opens the "Keeper's Record" — overview, by-topic accuracy, speed histogram
+  (per-kind breakdown), per-fact table, hot list, strengths, pacing flags,
+  7-day trend, and a developer calibration panel. The daughter doesn't notice
+  it; the dad knows where to tap.
+- **Trinkets and decoration.** ~35% chance of a small book-faithful keepsake
+  after a patrol (feathers, stones, claw-marks, moonstone shards, etc.).
+  Trinkets live in "Your Nest" and can be equipped to five slots on the cat
+  (ear / mouth / back / leg / nose). Hand-drawn art (Procreate exports) drops
+  into `public/trinkets/` and replaces the SVG fallback automatically.
+- **Patrol pacing caps + Mentor's daily focus.** Hunting Patrol locks at
+  1/day and 3/week so the player can't grind the easiest topic. A daily
+  mentor focus picks her weakest topic and awards 1.5× rank progress for
+  doing it. Random rotation 30% of the time so the focus isn't always the
+  same when she's weak in one area.
 - **Static + safe.** Pure client-side React + Vite. No backend, no database,
   no accounts. Saves are JSON files exportable to her iPad's Files app.
-  Total bundle: ~70 KB gzipped.
+  Total bundle: ~96 KB gzipped.
 
 ---
 
@@ -311,14 +330,48 @@ The full list lives in [CLAUDE.md](./CLAUDE.md). The non-negotiables:
 ## Roadmap & contributing
 
 [ROADMAP.md](./ROADMAP.md) tracks shipped features, the next batch of
-planned work, and items we deliberately rejected (with reasons). Highlights:
+planned work, and items we deliberately rejected (with reasons).
+[CHANGELOG.md](./CHANGELOG.md) has the version-by-version record.
+
+### Currently in review (draft PRs)
+
+- **[#10 — v15.0.0-h Phase 3: Achievements / Honors](https://github.com/winningday/warriors-path/pull/10)**
+  — 20 book-faithful named recognitions across five categories (Firsts /
+  Streaks / Milestones / Mastery / Collection), with one-shot ceremony
+  blocks on patrol completion and a browsable Honors view in the Den.
+- **[#11 — v15.0.0-h Phase 4: Field Guide](https://github.com/winningday/warriors-path/pull/11)**
+  — A hidden book of six lore pages, one per math topic, that unlock as
+  the player accumulates Trusted-bucket SR facts. Each page is 4–6
+  paragraphs in book-faithful Crimson Text serif. Reverent toward
+  StarClan; lore-checked by the daughter at review time.
+- **[#12 — v15.0.0-h Phase 5: Narrative beats](https://github.com/winningday/warriors-path/pull/12)**
+  — Three categories of rare events: ~1-in-30 random patrol vignettes
+  (a hawk circles overhead, a Twoleg crosses the moor); monthly Gathering
+  night (first Saturday) with a no-math story screen at Fourtrees and a
+  unique trinket; and StarClan dreams (7-day cooldown + soft daily roll)
+  that hint at the player's weakest topic.
+
+All three are functionally independent. Merge order is the dad's call;
+they'll need a tiny `package.json` version-bump conflict resolution
+(all three bumped to `15.0.0-h`).
+
+### Queued — next planned work
 
 - **v15b — Mastery-gated topic progression.** Topics unlock by demonstrated
-  competence, not rank or time.
-- **Achievements & gamification.** Badges for first catches, rare hunts, full
-  field-guide entries, comeback promotions of facts she struggled with.
+  competence, not rank or time. ROADMAP.md has the full plan.
+- **Admin grid editor for trinkets.** A 4×4 grid per slot
+  (ear / mouth / back / leg / nose / general) so the daughter's Procreate
+  exports can be drag-dropped in instead of edited by hand in `trinkets.js`.
+  Lower priority — current per-file workflow is ~2 minutes per trinket.
+- **Patrol-length & word-problem-mix tuning.** Waiting on observed play
+  data — once the daughter sessions on the new gamification we tune
+  problem counts per patrol type and the drill / word ratio.
+- **Adaptive content.** Variable patrol length and difficulty bands within
+  a topic, gated on per-fact mastery. Comes after v15b.
 - **AI-generated illustrations** to replace inline SVGs. Prompts and style
-  guide ready in [IMAGES.md](./IMAGES.md).
+  guide ready in [IMAGES.md](./IMAGES.md). Daughter is drawing the first
+  13 trinkets by hand in Procreate; once exported they drop into
+  `public/trinkets/<id>.png` and the SVG fallback yields automatically.
 - **Cloud saves with SQLite** (deferred — fully scoped, will only build when
   the manual export ritual actually fails her).
 - **Opt-in sound** — soft purr on rank-up, paw-step on patrol start. Default
