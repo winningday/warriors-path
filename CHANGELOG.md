@@ -11,6 +11,29 @@ For design philosophy see [`CLAUDE.md`](./CLAUDE.md).
 
 ## [Unreleased]
 
+### Added — v15.0.0-f trinket art + slot architecture
+- **SVG icon for every trinket.** New `TrinketIcon` component with 28
+  hand-tuned SVG icons matching the existing CatPortrait/PreyIcon style
+  (32×32 viewBox, soft fills with opacity layers, dark stroke for
+  definition, accent-tinted highlights). Reusable atoms for feathers,
+  stones, leaves, teeth, fur tufts, etc. — different fill colors give
+  jay-blue / pigeon-grey / robin-red / barn-owl-cream variants from the
+  same shape.
+- **Image-art pipeline.** Each trinket entry has an optional `imageSrc`
+  field — set it to `'/trinkets/<id>.png'` and the renderer uses the
+  hand-drawn image instead of the SVG fallback. PNG / SVG / WebP all
+  work. Files live in `public/trinkets/` (created with a README
+  explaining the convention for the daughter's Procreate exports).
+- **Slot architecture.** Each trinket has a `slot` field —
+  `ear / mouth / back / leg / nose / general` — preparing for Phase 2
+  cat customization where the player can pick one trinket per slot to
+  display on her cat. Current trinkets categorized sensibly (feathers
+  on the ear, teeth in the mouth, silks on the leg, stones in the
+  general nest, etc.). No equip UI yet — that's Phase 2.
+- Your Nest panel now shows each trinket's icon in a small framed box
+  next to its name; trinket-found callout in the patrol-complete view
+  shows the icon at 48px in a centered framed display.
+
 ### Added — v15.0.0-f gamification (pacing fix + first gift mechanic)
 - **Hunting Patrol caps.** Max 1 per day AND 3 per ISO week (resets Monday).
   Once capped, the patrol greys out with kind, book-faithful mentor flavor —

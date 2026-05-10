@@ -2,6 +2,7 @@ import React from 'react';
 import { styles, rewardSummary } from '../shared/styles.js';
 import { FontLoader } from '../shared/FontLoader.jsx';
 import { RewardTable } from '../shared/RewardTable.jsx';
+import { TrinketIcon } from '../art/TrinketIcon.jsx';
 import { CLANS } from '../../data/clans.js';
 import { getFullName } from '../../engine/rank.js';
 
@@ -118,11 +119,29 @@ export const CompleteView = ({ profile, patrol, onReturn }) => {
             <div style={{ ...styles.display, fontSize: 10, letterSpacing: '0.3em', color: '#a39d88', marginBottom: 8, textAlign: 'center' }}>
               ⟡ A SMALL FIND ⟡
             </div>
-            <div style={{ textAlign: 'center', fontSize: 14, color: '#e8dcc0' }}>
-              You bring home {profile._trinketFound.name}.
+            <div style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+            }}>
+              <div style={{
+                width: 64, height: 64,
+                background: 'rgba(10, 15, 10, 0.55)',
+                border: '1px solid rgba(168, 180, 145, 0.35)',
+                borderRadius: 2,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <TrinketIcon
+                  id={profile._trinketFound.id}
+                  imageSrc={profile._trinketFound.imageSrc}
+                  size={48}
+                  alt={profile._trinketFound.name}
+                />
+              </div>
+              <div style={{ textAlign: 'center', fontSize: 14, color: '#e8dcc0' }}>
+                You bring home {profile._trinketFound.name}.
+              </div>
             </div>
             {profile._trinketFound.origin && (
-              <div style={{ textAlign: 'center', fontSize: 12, color: '#a39d88', fontStyle: 'italic', marginTop: 6, lineHeight: 1.5 }}>
+              <div style={{ textAlign: 'center', fontSize: 12, color: '#a39d88', fontStyle: 'italic', marginTop: 8, lineHeight: 1.5 }}>
                 {profile._trinketFound.origin}
               </div>
             )}

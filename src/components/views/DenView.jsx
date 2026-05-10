@@ -4,6 +4,7 @@ import { FontLoader } from '../shared/FontLoader.jsx';
 import { StatCard } from '../shared/StatCard.jsx';
 import { CatPortrait } from '../art/CatPortrait.jsx';
 import { ClanScenery } from '../art/ClanScenery.jsx';
+import { TrinketIcon } from '../art/TrinketIcon.jsx';
 import { CLANS } from '../../data/clans.js';
 import { PATROLS } from '../../data/ranks.js';
 import { getFullName, getRankInfo, getMentorTitle, isMedicinePath } from '../../engine/rank.js';
@@ -193,12 +194,21 @@ export const DenView = ({ profile, slotsCount, onStartPatrol, onSwitchCharacter,
             <div style={{ display: 'grid', gap: 8 }}>
               {trinketEntries.map((t) => (
                 <div key={t.id} style={{
-                  display: 'flex', justifyContent: 'space-between',
-                  alignItems: 'flex-start', gap: 12,
+                  display: 'flex', alignItems: 'flex-start', gap: 12,
                   fontSize: 13, color: '#c8c0a8',
                   borderBottom: '1px dotted rgba(122, 133, 113, 0.18)',
-                  paddingBottom: 6,
+                  paddingBottom: 8,
                 }}>
+                  <div style={{
+                    width: 36, height: 36,
+                    background: 'rgba(10, 15, 10, 0.5)',
+                    border: '1px solid rgba(58, 67, 57, 0.6)',
+                    borderRadius: 2,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    flexShrink: 0,
+                  }}>
+                    <TrinketIcon id={t.id} imageSrc={t.imageSrc} size={28} alt={t.name} />
+                  </div>
                   <div style={{ flex: 1 }}>
                     <div>{t.name}</div>
                     {t.origin && (
