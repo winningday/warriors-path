@@ -11,6 +11,59 @@ For design philosophy see [`CLAUDE.md`](./CLAUDE.md).
 
 ## [Unreleased]
 
+### Added — v15.0.0-h Phase 4 Field Guide
+- **Hidden Field Guide (the elders' scroll).** Each topic the player MASTERS
+  unlocks a one-page lore tidbit — a short story written in book-faithful
+  voice that ties the math topic to a moment from the Warrior Cats books or
+  a believable Clan tradition. Mastery = enough facts in that topic's SR
+  pool in the Trusted bucket (5 for the big topics — mult / add / sub — and
+  3 for the smaller id pools — geometry / fraction / time, tuned per
+  id-pool size in src/engine/sr.js).
+- **Six lore pages, one per topic.** Catalog in `src/data/fieldGuide.js`:
+  - **Multiplication** — *How Lionheart Taught Firepaw to Count Strokes.*
+    Lionheart drills the rhythm of strikes into a new apprentice; "the
+    numbers live in your shoulders, not your head."
+  - **Addition** — *The Day Goosefeather Counted the Returning Patrols.*
+    The eccentric medicine cat lays a pebble for every cat who returns at
+    sundown. *"A Clan that knows its number is a Clan that knows when one
+    is missing."*
+  - **Subtraction** — *Counting What Remains After the Long Cold.* The
+    elders' leaf-bare tally of the prey pile, framed as the math of loss
+    and the math of hope.
+  - **Geometry** — *Why the Borders Are Walked Thrice.* Perimeter as the
+    edge that must be refreshed; area as the cleared ground the apprentices
+    practice on.
+  - **Fractions** — *Yellowfang's Herb-Share, and the Rule of Equal Piles.*
+    The medicine cat splits borage in halves, coltsfoot in thirds, marigold
+    in quarters. *"A fraction is a promise of fairness."*
+  - **Time** — *What the Elders Saw in the Twoleg Sun-Face.* A former
+    kittypet explains the clock above the twoleg den; the elders teach the
+    sun-face's marks to the apprentices alongside the real sun and moon.
+- **FieldGuideView** — two-pane layout (sidebar of all 6 entries + selected
+  page). Locked entries show their sealed state and a `N / threshold
+  TRUSTED` progress count. Unlocked pages render the title in Cinzel,
+  body in Crimson Text serif, with *italic* quotes preserved through a
+  tiny in-file `*...*` parser. Topic glyphs are small inline-SVG ornaments
+  matching the existing ⟡ aesthetic.
+- **Den access.** New "⟡ FIELD GUIDE ⟡" button beneath the story
+  flashcards button. Shows an unlock-count suffix `(X/6)` when at least
+  one page is unlocked. Always visible — the player loves the books and
+  the lore is the reward.
+- **Engine is pure.** All unlock state is derived from `profile.factsSR`;
+  no new persisted fields, no `SAVE_VERSION` bump (intentionally — parallel
+  Phase 3 / Phase 5 agents may also add schema fields and we want one
+  coordinated migration bump).
+
+### Files
+- `src/data/fieldGuide.js` (new) — catalog of 6 lore pages.
+- `src/engine/fieldGuide.js` (new) — `isPageUnlocked`, `unlockProgress`,
+  `unlockedPages`, `unlockedCount`, `fieldGuideEntries`.
+- `src/components/views/FieldGuideView.jsx` (new) — two-pane sidebar + page.
+- `src/App.jsx` — `fieldGuide` view route + `onOpenFieldGuide` prop on
+  `DenView`.
+- `src/components/views/DenView.jsx` — Field Guide button + unlock-count
+  suffix.
+
 ### Added — v15.0.0-h Phase 3 achievements
 - **Book-faithful "Honors" system.** Twenty named recognitions across
   five categories (Firsts, Mastery, Streaks, Collection, Milestones).
