@@ -11,6 +11,66 @@ For design philosophy see [`CLAUDE.md`](./CLAUDE.md).
 
 ## [Unreleased]
 
+### Added — v15.0.0-h Phase 5 narrative beats
+- **Random patrol events.** ~1-in-30 chance per patrol completion of a
+  small, book-faithful narrative beat (no math, just flavor). 12 distinct
+  events at launch: a hawk circles overhead, a dog barks across the
+  boundary, a Twoleg crosses the moor, an elder pads up and shares a
+  story, a fox trail crosses your path, a wood-pigeon drops a feather,
+  a fish jumps in a still pool, etc. Events are deprioritized when
+  recently seen (via a new `eventsExperienced` field on the profile, capped
+  at the last 50 ids) so the player isn't shown the same one twice in a row.
+  Some events come with a small trinket bonus that drops into Your Nest
+  (e.g. the fox trail leaves a fox-tooth in the dirt).
+- **Gathering night.** Once per moon — concretely the **first Saturday
+  of each calendar month** — a special "GATHERING NIGHT" banner appears
+  in the Den. Tapping crosses the moor to Fourtrees for a no-math
+  story scene: the player's apprentice meets an apprentice of another
+  Clan and listens to them brag, joke, or share a quiet observation.
+  8 vignettes at launch covering all four Clans. Each vignette ends
+  with a one-line "lesson" in the book's observational voice. Attending
+  awards a unique `g-gathering-token` trinket. Cadence is calendar-based,
+  not stored — no timers, no countdown, just date math.
+- **StarClan dreams.** At most once every 7 days, the player wakes from
+  a soft, reverent dream from one of her cat's StarClan ancestors
+  (Bluestar, Spottedleaf, Lionheart, Yellowfang, Whitestorm). The dream
+  gently points at the topic she's been weakest on (by `topicStats`
+  accuracy) — multiplication, addition, geometry, fractions, or time.
+  Surfaced as a cool-blue "⟡ A DREAM CAME TO YOU ⟡" notification at the
+  top of the Den; tapping expands the full dream; dismissing carries it
+  with her (sets `lastDreamAt` so the next dream waits its turn). 12
+  dream templates at launch (2–3 per topic, varied ancestors).
+
+### Migration
+- **Additive only — no `SAVE_VERSION` bump.** New fields default safely
+  on older saves:
+  - `lastGatheringAt: null`     (timestamp of last Gathering attended)
+  - `lastDreamAt: null`         (timestamp of last StarClan dream seen)
+  - `eventsExperienced: []`     (random-event ids met, capped 50, dedup)
+  The version is intentionally not bumped here so Phase 3 (achievements)
+  and Phase 4 (Field Guide) can coordinate a single bump when all three
+  land. Older saves continue to load cleanly and migrate forward without
+  losing data.
+
+### Files
+- `src/data/narrativeBeats.js` (new) — catalog: 12 random events,
+  8 Gathering vignettes, 12 StarClan dreams + `GATHERING_TRINKET`.
+- `src/engine/narrativeBeats.js` (new) — `rollRandomEvent`,
+  `isGatheringNight`, `pickGatheringContent`, `pickStarClanDream`,
+  `markDreamSeen`, `markGatheringAttended`, `recordEventExperienced`.
+- `src/components/views/GatheringView.jsx` (new) — no-math Gathering
+  story screen with vignette + token reward.
+- `src/engine/migration.js` — defensive defaults for the new fields.
+- `src/App.jsx` — `rollRandomEvent` in `finishPatrol`, `_narrativeBeat`
+  one-shot flag, `gathering` view route, `onDismissDream` handler.
+- `src/components/views/DenView.jsx` — Gathering banner + StarClan
+  dream notification at top of Den.
+- `src/components/views/CompleteView.jsx` — narrative-beat callout
+  after trinket-found callout.
+- `src/data/trinkets.js` — `EXTRA_TRINKETS` lookup row so the Gathering
+  token displays correctly in Your Nest.
+- `src/components/art/TrinketIcon.jsx` — SVG glyph for the Gathering token.
+
 ### Added — v15.0.0-g cat customization (Phase 2)
 - **Equip trinkets to the cat's body.** Five wearable slots: `ear`,
   `mouth`, `back`, `leg`, `nose`. Player picks which collected trinket

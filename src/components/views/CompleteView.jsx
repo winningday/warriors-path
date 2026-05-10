@@ -5,6 +5,7 @@ import { RewardTable } from '../shared/RewardTable.jsx';
 import { TrinketIcon } from '../art/TrinketIcon.jsx';
 import { CLANS } from '../../data/clans.js';
 import { getFullName } from '../../engine/rank.js';
+import { trinketById } from '../../data/trinkets.js';
 
 export const CompleteView = ({ profile, patrol, onReturn }) => {
   const clan = CLANS.find((c) => c.name === profile.clan);
@@ -147,6 +148,56 @@ export const CompleteView = ({ profile, patrol, onReturn }) => {
             )}
           </div>
         )}
+
+        {/* v15.0.0-h narrative beat — one-shot per patrol. Set by App.jsx in
+            finishPatrol via rollRandomEvent() and cleared on RETURN TO CAMP.
+            Pure flavor (no math); optional small reward via trinket. */}
+        {profile._narrativeBeat && (() => {
+          const beat = profile._narrativeBeat;
+          const rewardTrinket = beat.reward?.trinketId
+            ? trinketById(beat.reward.trinketId)
+            : null;
+          return (
+            <div style={{
+              ...rewardSummary,
+              background: 'rgba(168, 180, 145, 0.06)',
+              border: '1px dashed rgba(217, 118, 66, 0.45)',
+            }}>
+              <div style={{ ...styles.display, fontSize: 10, letterSpacing: '0.3em', color: '#d97642', marginBottom: 8, textAlign: 'center' }}>
+                ⟡ {beat.name.toUpperCase()} ⟡
+              </div>
+              <div style={{ fontSize: 13, color: '#c8c0a8', fontStyle: 'italic', lineHeight: 1.6, textAlign: 'center' }}>
+                {beat.story}
+              </div>
+              {rewardTrinket && (
+                <div style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+                  marginTop: 14,
+                  paddingTop: 12,
+                  borderTop: '1px dotted rgba(168, 180, 145, 0.25)',
+                }}>
+                  <div style={{
+                    width: 48, height: 48,
+                    background: 'rgba(10, 15, 10, 0.55)',
+                    border: '1px solid rgba(168, 180, 145, 0.35)',
+                    borderRadius: 2,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <TrinketIcon
+                      id={rewardTrinket.id}
+                      imageSrc={rewardTrinket.imageSrc}
+                      size={36}
+                      alt={rewardTrinket.name}
+                    />
+                  </div>
+                  <div style={{ textAlign: 'center', fontSize: 12, color: '#a39d88', fontStyle: 'italic' }}>
+                    {beat.reward.flavor || rewardTrinket.origin}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         <button onClick={onReturn} style={{
           width: '100%', padding: '16px',

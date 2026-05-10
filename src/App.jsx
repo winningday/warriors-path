@@ -15,6 +15,13 @@ import { rollTrinket } from './data/trinkets.js';
 import { autoRankForCorrect, rollEligibleChanceRank, getFullName } from './engine/rank.js';
 import { generateProblem } from './engine/generators.js';
 import { normalizeProfile, normalizeToV13 } from './engine/migration.js';
+import {
+  rollRandomEvent,
+  markDreamSeen,
+  markGatheringAttended,
+  recordEventExperienced,
+  gatheringTrinket,
+} from './engine/narrativeBeats.js';
 
 // Storage
 import { storage, SAVES_KEY, loadSavesContainer, persistContainer } from './storage/storage.js';
@@ -38,6 +45,7 @@ import { StoryPromptView } from './components/views/StoryPromptView.jsx';
 import { FlashcardsView } from './components/views/FlashcardsView.jsx';
 import { StatsView } from './components/views/StatsView.jsx';
 import { DecorateView } from './components/views/DecorateView.jsx';
+import { GatheringView } from './components/views/GatheringView.jsx';
 
 // =====================================================================
 // MAIN COMPONENT
@@ -188,6 +196,12 @@ export default function WarriorsPath() {
     const focusBonus = isFocusPatrol ? correct * FOCUS_RANK_BONUS_PER_CORRECT : 0;
     const trinket = Math.random() < 0.35 ? rollTrinket(patrol.type.id) : null;
 
+    // v15.0.0-h Phase 5 — random narrative beat. 1-in-30 base rate, slight
+    // deprioritization of events the player has seen recently. May come with
+    // its own bonus trinket (independent of the patrol trinket roll above).
+    const narrativeBeat = rollRandomEvent(profile);
+    const eventTrinketId = narrativeBeat?.reward?.trinketId || null;
+
     const updated = await updateActive((p) => {
       const newStreak = isNewDay ? (p.streak || 0) + 1 : (p.streak || 0);
       const next = {
@@ -209,10 +223,24 @@ export default function WarriorsPath() {
       rewards.prey.forEach((x) => { next.preyCaught[x] = (next.preyCaught[x] || 0) + 1; });
       rewards.herbs.forEach((x) => { next.herbsCaught[x] = (next.herbsCaught[x] || 0) + 1; });
 
+      // v15.0.0-h — apply the narrative-beat bonus trinket on top of the
+      // patrol trinket roll, and record the event id so we deprioritize
+      // repeats. The event itself is rendered via _narrativeBeat below.
+      if (eventTrinketId) {
+        next.trinkets = {
+          ...(next.trinkets || {}),
+          [eventTrinketId]: ((next.trinkets || {})[eventTrinketId] || 0) + 1,
+        };
+      }
+      if (narrativeBeat) {
+        next.eventsExperienced = recordEventExperienced(p, narrativeBeat.id);
+      }
+
       // Stash transient flags for the CompleteView to render once.
       next._focusBonus = focusBonus;
       next._isFocusPatrol = isFocusPatrol;
       next._trinketFound = trinket;
+      next._narrativeBeat = narrativeBeat || null;
 
       // Rank-up: use rankFloor-aware count so migrated saves don't demote on next patrol.
       // rankBonusCorrect is added on top so focus-topic patrols ratchet rank faster.
@@ -386,12 +414,35 @@ export default function WarriorsPath() {
         setPatrolStartedAt(now);
         setView('patrol');
       }}
+      onStartGathering={() => setView('gathering')}
+      onDismissDream={async () => {
+        await updateActive((p) => ({ ...p, ...markDreamSeen(Date.now()) }));
+      }}
       onOpenFlashcards={() => setView('flashcards')}
       onOpenStats={() => setView('stats')}
       onOpenDecorate={() => setView('decorate')}
       onSwitchCharacter={() => setView('slots')}
       onExport={exportProfile}
       onImport={importProfile}
+    />;
+  }
+
+  if (view === 'gathering') {
+    return <GatheringView
+      profile={profile}
+      onReturn={async () => {
+        const now = Date.now();
+        const token = gatheringTrinket();
+        await updateActive((p) => ({
+          ...p,
+          ...markGatheringAttended(now),
+          trinkets: {
+            ...(p.trinkets || {}),
+            [token.id]: ((p.trinkets || {})[token.id] || 0) + 1,
+          },
+        }));
+        setView('den');
+      }}
     />;
   }
 
@@ -627,7 +678,15 @@ export default function WarriorsPath() {
     return <CompleteView
       profile={profile}
       patrol={patrol}
-      onReturn={() => { setPatrol(null); setView('den'); }}
+      onReturn={async () => {
+        // v15.0.0-h — one-shot beat flag: clear so it doesn't re-render
+        // on the next completion. Stays as null so older views are happy.
+        if (profile && profile._narrativeBeat) {
+          await updateActive((p) => ({ ...p, _narrativeBeat: null }));
+        }
+        setPatrol(null);
+        setView('den');
+      }}
     />;
   }
 

@@ -24,6 +24,13 @@ import { SAVE_VERSION, HISTOGRAM_BUCKETS } from './sr.js';
 //   - v19 adds `equipped`: a per-slot map of which collected trinket the
 //     player has chosen to display on her cat (ear/mouth/back/leg/nose).
 //     Values are trinket ids or null. Older saves get all-null defaults.
+//   - v15.0.0-h adds narrative-beat fields:
+//       lastGatheringAt    — timestamp (ms) of the last Gathering attended
+//       lastDreamAt        — timestamp (ms) of the last StarClan dream seen
+//       eventsExperienced  — array of random-event ids the player has met
+//     All additive — older saves migrate to null/[] defaults. SAVE_VERSION
+//     is intentionally NOT bumped here; parallel Phase 3/4 agents may also
+//     add fields and we want to coordinate via a single version bump.
 
 const emptyHistogram = () => HISTOGRAM_BUCKETS.reduce((m, b) => { m[b] = 0; return m; }, {});
 
@@ -197,6 +204,16 @@ export const normalizeProfile = (raw) => {
     // v19 — equipped trinkets per slot. Player picks which collected trinket
     // to display in each of five slots on the cat. Slot values: trinketId or null.
     equipped: normalizeEquipped(raw.equipped),
+    // v15.0.0-h — narrative beats. All additive defaults for older saves.
+    //   lastGatheringAt   — last Gathering night attended (ms timestamp).
+    //   lastDreamAt       — last StarClan dream seen (ms timestamp).
+    //   eventsExperienced — random-event ids the player has met (deduped,
+    //                       most-recent-last, cap 50 in engine).
+    lastGatheringAt: typeof raw.lastGatheringAt === 'number' ? raw.lastGatheringAt : null,
+    lastDreamAt:     typeof raw.lastDreamAt     === 'number' ? raw.lastDreamAt     : null,
+    eventsExperienced: Array.isArray(raw.eventsExperienced)
+      ? raw.eventsExperienced.filter((id) => typeof id === 'string')
+      : [],
   };
 };
 
