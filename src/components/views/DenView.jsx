@@ -11,7 +11,7 @@ import { getFullName, getRankInfo, getMentorTitle, isMedicinePath } from '../../
 import { mentorFocus, patrolStatus, pickCapFlavor, patrolForTopic } from '../../engine/patrolGate.js';
 import { trinketById } from '../../data/trinkets.js';
 
-export const DenView = ({ profile, slotsCount, onStartPatrol, onSwitchCharacter, onOpenFlashcards, onOpenStats, onExport, onImport }) => {
+export const DenView = ({ profile, slotsCount, onStartPatrol, onSwitchCharacter, onOpenFlashcards, onOpenStats, onOpenDecorate, onExport, onImport }) => {
   const clan = CLANS.find((c) => c.name === profile.clan);
   const fullName = getFullName(profile);
   const { current, next } = getRankInfo(profile);
@@ -53,7 +53,13 @@ export const DenView = ({ profile, slotsCount, onStartPatrol, onSwitchCharacter,
           <ClanScenery clan={profile.clan} accent={clan.accent} />
         </div>
         <div style={{ textAlign: 'center', marginBottom: 18, marginTop: -56, position: 'relative', zIndex: 2 }}>
-          <CatPortrait rank={profile.rank} accent={clan.accent} furColor={profile.furColor} size={104} />
+          <CatPortrait
+            rank={profile.rank}
+            accent={clan.accent}
+            furColor={profile.furColor}
+            size={104}
+            equipped={profile.equipped}
+          />
         </div>
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
           <div style={{ fontSize: 10, letterSpacing: '0.4em', color: '#7a8571', marginBottom: 6, ...styles.display }}>
@@ -182,7 +188,8 @@ export const DenView = ({ profile, slotsCount, onStartPatrol, onSwitchCharacter,
         )}
 
         {/* YOUR NEST — collected trinkets. Renders only when she has at
-            least one. Compact list with name + count + origin tooltip. */}
+            least one. Compact list with name + count + origin tooltip.
+            v19 — "decorate your cat" button up top. */}
         {trinketEntries.length > 0 && (
           <div style={{ background: 'rgba(26, 36, 25, 0.4)', border: '1px solid #2a3329', padding: 14, borderRadius: 2, marginBottom: 18 }}>
             <div style={{ ...styles.display, fontSize: 10, letterSpacing: '0.3em', color: '#a39d88', marginBottom: 10, textAlign: 'center' }}>
@@ -191,6 +198,19 @@ export const DenView = ({ profile, slotsCount, onStartPatrol, onSwitchCharacter,
             <div style={{ fontSize: 11, color: '#7a8571', textAlign: 'center', marginBottom: 12, fontStyle: 'italic' }}>
               Small keepsakes from your patrols
             </div>
+            <button onClick={onOpenDecorate} style={{
+              width: '100%', padding: '10px',
+              background: 'rgba(217, 118, 66, 0.08)',
+              border: `1px solid ${clan.accent}`,
+              color: clan.accent,
+              fontSize: 11, cursor: 'pointer',
+              borderRadius: 2,
+              letterSpacing: '0.2em',
+              fontFamily: "'Crimson Text', serif",
+              marginBottom: 12,
+            }}>
+              ⟡  DECORATE YOUR CAT  ⟡
+            </button>
             <div style={{ display: 'grid', gap: 8 }}>
               {trinketEntries.map((t) => (
                 <div key={t.id} style={{

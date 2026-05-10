@@ -37,6 +37,7 @@ import { CompleteView } from './components/views/CompleteView.jsx';
 import { StoryPromptView } from './components/views/StoryPromptView.jsx';
 import { FlashcardsView } from './components/views/FlashcardsView.jsx';
 import { StatsView } from './components/views/StatsView.jsx';
+import { DecorateView } from './components/views/DecorateView.jsx';
 
 // =====================================================================
 // MAIN COMPONENT
@@ -387,9 +388,23 @@ export default function WarriorsPath() {
       }}
       onOpenFlashcards={() => setView('flashcards')}
       onOpenStats={() => setView('stats')}
+      onOpenDecorate={() => setView('decorate')}
       onSwitchCharacter={() => setView('slots')}
       onExport={exportProfile}
       onImport={importProfile}
+    />;
+  }
+
+  if (view === 'decorate') {
+    return <DecorateView
+      profile={profile}
+      onBack={() => setView('den')}
+      onEquip={async (slot, trinketId) => {
+        await updateActive((p) => ({
+          ...p,
+          equipped: { ...(p.equipped || {}), [slot]: trinketId },
+        }));
+      }}
     />;
   }
 

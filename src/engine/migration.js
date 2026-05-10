@@ -21,6 +21,9 @@ import { SAVE_VERSION, HISTOGRAM_BUCKETS } from './sr.js';
 //     and `rankBonusCorrect` (focus-topic-patrol bonus toward rank, kept
 //     separate from totalCorrect so stats stay honest). Both default to
 //     empty/zero for older saves.
+//   - v19 adds `equipped`: a per-slot map of which collected trinket the
+//     player has chosen to display on her cat (ear/mouth/back/leg/nose).
+//     Values are trinket ids or null. Older saves get all-null defaults.
 
 const emptyHistogram = () => HISTOGRAM_BUCKETS.reduce((m, b) => { m[b] = 0; return m; }, {});
 
@@ -91,6 +94,20 @@ const normalizeKindSamples = (raw) => {
       ? e.samples.filter((n) => typeof n === 'number' && isFinite(n) && n >= 0).slice(-KIND_SAMPLES_MAX)
       : [];
     out[kind] = { samples, count: typeof e.count === 'number' ? e.count : samples.length };
+  }
+  return out;
+};
+
+// v19 — equipped trinkets, keyed by slot. Slots match the trinket data's
+// `slot` field (ear / mouth / back / leg / nose). 'general' trinkets aren't
+// wearable and never appear here. Values are trinket ids; null = nothing
+// equipped for that slot.
+const EQUIPPABLE_SLOTS = ['ear', 'mouth', 'back', 'leg', 'nose'];
+const normalizeEquipped = (raw) => {
+  const out = EQUIPPABLE_SLOTS.reduce((m, s) => { m[s] = null; return m; }, {});
+  if (!raw || typeof raw !== 'object') return out;
+  for (const s of EQUIPPABLE_SLOTS) {
+    if (typeof raw[s] === 'string' && raw[s].length > 0) out[s] = raw[s];
   }
   return out;
 };
@@ -177,6 +194,9 @@ export const normalizeProfile = (raw) => {
     // (separate from totalCorrect so stats stay honest).
     trinkets: (raw.trinkets && typeof raw.trinkets === 'object') ? { ...raw.trinkets } : {},
     rankBonusCorrect: typeof raw.rankBonusCorrect === 'number' ? raw.rankBonusCorrect : 0,
+    // v19 — equipped trinkets per slot. Player picks which collected trinket
+    // to display in each of five slots on the cat. Slot values: trinketId or null.
+    equipped: normalizeEquipped(raw.equipped),
   };
 };
 

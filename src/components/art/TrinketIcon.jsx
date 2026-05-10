@@ -231,9 +231,13 @@ const BarkCurl = () => (
   </g>
 );
 
-// Map trinket id → render function. Each takes no args; the wrapper
-// component supplies the size and stroke at the SVG level.
-const ICONS = {
+// Map trinket id → render function. Each takes no args and returns the
+// SVG inner content (no <svg> wrapper, no <image>). This is so the inner
+// content can be embedded directly into another SVG (e.g. the cat
+// portrait's slot overlays in v19) without nesting <svg> elements.
+//
+// Exported so CatPortrait can render the same shapes inline.
+export const TRINKET_ICONS = {
   // training
   't-claw-mark':    () => <ClawMark />,
   't-whisker':      () => <Whisker />,
@@ -289,7 +293,7 @@ export const TrinketIcon = ({ id, imageSrc, size = 32, alt = '' }) => {
       />
     );
   }
-  const render = ICONS[id];
+  const render = TRINKET_ICONS[id];
   if (!render) {
     return <span style={{ fontSize: size, lineHeight: 1, opacity: 0.5 }}>·</span>;
   }
