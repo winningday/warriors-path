@@ -108,6 +108,42 @@ export const CompleteView = ({ profile, patrol, onReturn }) => {
           </div>
         )}
 
+        {/* v15.0.0-h Phase 3 — newly-earned Honor ceremony. One small block
+            per Honor earned on this patrol (in practice 0 or 1; multiple
+            possible in edge cases). Same dashed-border / orange-accent
+            framing as the trinket-found callout. */}
+        {Array.isArray(profile._newlyEarned) && profile._newlyEarned.length > 0 && (
+          profile._newlyEarned.map((a) => (
+            <div key={a.id} style={{
+              ...rewardSummary,
+              background: 'rgba(217, 118, 66, 0.08)',
+              border: '1px dashed rgba(217, 118, 66, 0.55)',
+            }}>
+              <div style={{ ...styles.display, fontSize: 10, letterSpacing: '0.3em', color: '#d97642', marginBottom: 8, textAlign: 'center' }}>
+                ⟡ NEW HONOR ⟡
+              </div>
+              <div style={{
+                textAlign: 'center', ...styles.display,
+                fontSize: 16, color: clan.accent, fontWeight: 700, letterSpacing: '0.1em',
+                marginBottom: 6,
+              }}>
+                {a.name.toUpperCase()}
+              </div>
+              <div style={{ textAlign: 'center', fontSize: 13, color: '#e8dcc0', marginBottom: 4 }}>
+                {a.description}
+              </div>
+              {a.lore && (
+                <div style={{
+                  textAlign: 'center', fontSize: 12, color: '#a39d88',
+                  fontStyle: 'italic', marginTop: 6, lineHeight: 1.5,
+                }}>
+                  {a.lore}
+                </div>
+              )}
+            </div>
+          ))
+        )}
+
         {/* v15.0.0-f trinket drop — small keepsake from this patrol.
             Lives in "Your Nest" once collected. */}
         {profile._trinketFound && (

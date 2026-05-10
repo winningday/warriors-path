@@ -24,6 +24,9 @@ import { SAVE_VERSION, HISTOGRAM_BUCKETS } from './sr.js';
 //   - v19 adds `equipped`: a per-slot map of which collected trinket the
 //     player has chosen to display on her cat (ear/mouth/back/leg/nose).
 //     Values are trinket ids or null. Older saves get all-null defaults.
+//   - v15.0.0-h (Phase 3, no SAVE_VERSION bump) adds `achievementsEarned`:
+//     a list of stable id strings the player has earned. Empty for older
+//     saves; populated as patrols complete via checkAchievements().
 
 const emptyHistogram = () => HISTOGRAM_BUCKETS.reduce((m, b) => { m[b] = 0; return m; }, {});
 
@@ -197,6 +200,13 @@ export const normalizeProfile = (raw) => {
     // v19 — equipped trinkets per slot. Player picks which collected trinket
     // to display in each of five slots on the cat. Slot values: trinketId or null.
     equipped: normalizeEquipped(raw.equipped),
+    // v15.0.0-h (Phase 3) — book-faithful Honors. Stable ID strings the
+    // player has already earned. Additive; older saves get an empty array.
+    // Unknown ids are tolerated (catalog removals shouldn't break old saves).
+    // SAVE_VERSION is NOT bumped — next functional release will handle that.
+    achievementsEarned: Array.isArray(raw.achievementsEarned)
+      ? raw.achievementsEarned.filter((id) => typeof id === 'string')
+      : [],
   };
 };
 

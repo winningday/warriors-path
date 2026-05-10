@@ -10,8 +10,9 @@ import { PATROLS } from '../../data/ranks.js';
 import { getFullName, getRankInfo, getMentorTitle, isMedicinePath } from '../../engine/rank.js';
 import { mentorFocus, patrolStatus, pickCapFlavor, patrolForTopic } from '../../engine/patrolGate.js';
 import { trinketById } from '../../data/trinkets.js';
+import { earnedCount, totalCount } from '../../engine/achievements.js';
 
-export const DenView = ({ profile, slotsCount, onStartPatrol, onSwitchCharacter, onOpenFlashcards, onOpenStats, onOpenDecorate, onExport, onImport }) => {
+export const DenView = ({ profile, slotsCount, onStartPatrol, onSwitchCharacter, onOpenFlashcards, onOpenStats, onOpenDecorate, onOpenHonors, onExport, onImport }) => {
   const clan = CLANS.find((c) => c.name === profile.clan);
   const fullName = getFullName(profile);
   const { current, next } = getRankInfo(profile);
@@ -26,6 +27,9 @@ export const DenView = ({ profile, slotsCount, onStartPatrol, onSwitchCharacter,
   const totalHerbs = Object.values(profile.herbsCaught || {}).reduce((s, n) => s + n, 0);
 
   const storiesCount = Object.keys(profile.factStories || {}).length;
+  // v15.0.0-h Phase 3 — Honors counts (X earned / Y total).
+  const honorsEarned = earnedCount(profile);
+  const honorsTotal = totalCount();
 
   // v15.0.0-f gamification:
   // - Mentor's focus topic (today). Persists per character per calendar day.
@@ -256,9 +260,26 @@ export const DenView = ({ profile, slotsCount, onStartPatrol, onSwitchCharacter,
           fontFamily: "'Crimson Text', serif",
           cursor: 'pointer',
           borderRadius: 2,
-          marginBottom: 18,
+          marginBottom: 10,
         }}>
           ⟡  story flashcards{storiesCount > 0 ? ` (${storiesCount})` : ''}
+        </button>
+
+        {/* v15.0.0-h Phase 3 — Honors button. Always visible; shows (X/Y)
+            count once she's earned at least one. */}
+        <button onClick={onOpenHonors} style={{
+          width: '100%', padding: '12px',
+          background: 'transparent',
+          border: '1px solid #3a4339',
+          color: '#c8c0a8',
+          fontSize: 12,
+          letterSpacing: '0.18em',
+          fontFamily: "'Crimson Text', serif",
+          cursor: 'pointer',
+          borderRadius: 2,
+          marginBottom: 18,
+        }}>
+          ⟡  HONORS{honorsEarned > 0 ? ` (${honorsEarned}/${honorsTotal})` : ''}
         </button>
 
         <div style={{ marginTop: 16, paddingBottom: 20 }}>
