@@ -4,9 +4,12 @@ import { FontLoader } from '../shared/FontLoader.jsx';
 import { StatCard } from '../shared/StatCard.jsx';
 import { CatPortrait } from '../art/CatPortrait.jsx';
 import { ClanScenery } from '../art/ClanScenery.jsx';
+import { TrinketIcon } from '../art/TrinketIcon.jsx';
 import { CLANS } from '../../data/clans.js';
 import { PATROLS } from '../../data/ranks.js';
 import { getFullName, getRankInfo, getMentorTitle, isMedicinePath } from '../../engine/rank.js';
+import { mentorFocus, patrolStatus, pickCapFlavor, patrolForTopic } from '../../engine/patrolGate.js';
+import { trinketById } from '../../data/trinkets.js';
 
 export const DenView = ({ profile, slotsCount, onStartPatrol, onSwitchCharacter, onOpenFlashcards, onOpenStats, onExport, onImport }) => {
   const clan = CLANS.find((c) => c.name === profile.clan);
@@ -21,9 +24,26 @@ export const DenView = ({ profile, slotsCount, onStartPatrol, onSwitchCharacter,
     : 100;
   const totalPrey  = Object.values(profile.preyCaught  || {}).reduce((s, n) => s + n, 0);
   const totalHerbs = Object.values(profile.herbsCaught || {}).reduce((s, n) => s + n, 0);
-  const isApprentice = profile.rank === 'Apprentice' || profile.rank === 'Medicine Cat Apprentice';
 
   const storiesCount = Object.keys(profile.factStories || {}).length;
+
+  // v15.0.0-f gamification:
+  // - Mentor's focus topic (today). Persists per character per calendar day.
+  // - Per-patrol cap status (daily + weekly). Used to grey out capped patrols
+  //   and show book-faithful mentor flavor instead of the description.
+  // - Trinket collection ("Your Nest") — small keepsakes earned at random
+  //   from completed patrols.
+  const focus = mentorFocus(profile);
+  const focusPatrol = patrolForTopic(focus.topic);
+  // Cache cap status per patrol so the render is one pass through PATROLS.
+  const statuses = PATROLS.reduce((m, p) => { m[p.id] = patrolStatus(profile, p.id); return m; }, {});
+
+  // Trinket entries grouped for "Your Nest". Object: { [id]: count } → array
+  // sorted by descending count so the most-collected appears first.
+  const trinketEntries = Object.entries(profile.trinkets || {})
+    .filter(([, count]) => count > 0)
+    .map(([id, count]) => ({ ...trinketById(id), count }))
+    .sort((a, b) => b.count - a.count);
 
   return (
     <div style={styles.root}>
@@ -73,41 +93,136 @@ export const DenView = ({ profile, slotsCount, onStartPatrol, onSwitchCharacter,
           </div>
         )}
 
+        {/* MENTOR'S FOCUS — today's bonus-rewards topic. Picks the kid's
+            weakest topic 70% of the time, random rotation 30%. */}
+        {focusPatrol && (
+          <div style={{
+            background: 'rgba(217, 118, 66, 0.08)',
+            border: '1px solid rgba(217, 118, 66, 0.4)',
+            padding: '12px 14px',
+            marginBottom: 14,
+            borderRadius: 2,
+          }}>
+            <div style={{ ...styles.display, fontSize: 9, letterSpacing: '0.3em', color: '#d97642', marginBottom: 4 }}>
+              ⟡ MENTOR&apos;S FOCUS TODAY ⟡
+            </div>
+            <div style={{ fontSize: 14, color: '#e8c598' }}>
+              {focusPatrol.name} <span style={{ color: '#a39d88', fontSize: 12 }}>· bonus rewards (1.5×)</span>
+            </div>
+            <div style={{ fontSize: 11, color: '#a39d88', fontStyle: 'italic', marginTop: 4 }}>
+              Your mentor wants you to focus on {focusPatrol.subtitle.toLowerCase()} today.
+            </div>
+          </div>
+        )}
+
         <div style={{ ...styles.display, fontSize: 11, letterSpacing: '0.3em', color: '#7a8571', marginBottom: 12, textAlign: 'center' }}>
           CHOOSE YOUR PATROL
         </div>
         <div style={{ display: 'grid', gap: 10, marginBottom: 24 }}>
-          {PATROLS.map((p) => (
-            <button key={p.id} onClick={() => onStartPatrol(p)} style={{
-              background: 'rgba(26, 36, 25, 0.5)',
-              border: '1px solid #2a3329',
-              padding: '16px 18px',
-              color: '#e8dcc0',
-              textAlign: 'left',
-              cursor: 'pointer',
-              borderRadius: 2,
-              transition: 'all 0.2s',
-            }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = clan.accent; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#2a3329'; }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div>
-                  <div style={{ ...styles.display, fontSize: 15, letterSpacing: '0.15em', color: clan.accent, fontWeight: 600 }}>
-                    {p.name.toUpperCase()}
+          {PATROLS.map((p) => {
+            const st = statuses[p.id];
+            const isCapped = st.capped;
+            const isFocus = focus.topic === p.topic;
+            const capLine = isCapped ? pickCapFlavor(p.id, st.reason) : null;
+            return (
+              <button key={p.id} onClick={() => !isCapped && onStartPatrol(p)} style={{
+                background: isCapped ? 'rgba(26, 36, 25, 0.25)' : 'rgba(26, 36, 25, 0.5)',
+                border: `1px solid ${isFocus ? 'rgba(217, 118, 66, 0.55)' : '#2a3329'}`,
+                padding: '16px 18px',
+                color: isCapped ? '#7a8571' : '#e8dcc0',
+                textAlign: 'left',
+                cursor: isCapped ? 'default' : 'pointer',
+                borderRadius: 2,
+                transition: 'all 0.2s',
+                opacity: isCapped ? 0.6 : 1,
+              }}
+                onMouseEnter={(e) => { if (!isCapped) e.currentTarget.style.borderColor = clan.accent; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = isFocus ? 'rgba(217, 118, 66, 0.55)' : '#2a3329'; }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ ...styles.display, fontSize: 15, letterSpacing: '0.15em', color: isCapped ? '#7a8571' : clan.accent, fontWeight: 600 }}>
+                      {p.name.toUpperCase()}
+                      {isFocus && !isCapped && (
+                        <span style={{ marginLeft: 10, fontSize: 9, letterSpacing: '0.3em', color: '#d97642' }}>
+                          · FOCUS
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 13, fontStyle: 'italic', color: '#a39d88', marginTop: 2 }}>{p.subtitle}</div>
+                    <div style={{ fontSize: 12, color: isCapped ? '#a39d88' : '#7a8571', fontStyle: isCapped ? 'italic' : 'normal', marginTop: 6 }}>
+                      {capLine || p.desc}
+                    </div>
+                    {/* Per-patrol day/week count. Visible whenever there's a cap or
+                        the player has done at least one of this patrol today. */}
+                    {(st.perDay != null || st.todayCount > 0) && (
+                      <div style={{ fontSize: 10, color: '#5a6155', marginTop: 8, ...styles.display, letterSpacing: '0.2em' }}>
+                        TODAY {st.todayCount}{st.perDay != null ? ` / ${st.perDay}` : ''}
+                        {st.perWeek != null && (
+                          <span style={{ marginLeft: 14 }}>
+                            THIS WEEK {st.weekCount} / {st.perWeek}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <div style={{ fontSize: 13, fontStyle: 'italic', color: '#a39d88', marginTop: 2 }}>{p.subtitle}</div>
-                  <div style={{ fontSize: 12, color: '#7a8571', marginTop: 6 }}>{p.desc}</div>
+                  <div style={{ color: isCapped ? '#3a4339' : clan.accent, fontSize: 20, ...styles.display, marginLeft: 10 }}>
+                    {isCapped ? '·' : '→'}
+                  </div>
                 </div>
-                <div style={{ color: clan.accent, fontSize: 20, ...styles.display }}>→</div>
-              </div>
-            </button>
-          ))}
+              </button>
+            );
+          })}
         </div>
 
         {profile.patrolsToday > 0 && (
           <div style={{ textAlign: 'center', fontSize: 12, color: '#7a8571', fontStyle: 'italic', marginBottom: 16 }}>
             You have completed {profile.patrolsToday} patrol{profile.patrolsToday === 1 ? '' : 's'} today.
+          </div>
+        )}
+
+        {/* YOUR NEST — collected trinkets. Renders only when she has at
+            least one. Compact list with name + count + origin tooltip. */}
+        {trinketEntries.length > 0 && (
+          <div style={{ background: 'rgba(26, 36, 25, 0.4)', border: '1px solid #2a3329', padding: 14, borderRadius: 2, marginBottom: 18 }}>
+            <div style={{ ...styles.display, fontSize: 10, letterSpacing: '0.3em', color: '#a39d88', marginBottom: 10, textAlign: 'center' }}>
+              ⟡ YOUR NEST ⟡
+            </div>
+            <div style={{ fontSize: 11, color: '#7a8571', textAlign: 'center', marginBottom: 12, fontStyle: 'italic' }}>
+              Small keepsakes from your patrols
+            </div>
+            <div style={{ display: 'grid', gap: 8 }}>
+              {trinketEntries.map((t) => (
+                <div key={t.id} style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 12,
+                  fontSize: 13, color: '#c8c0a8',
+                  borderBottom: '1px dotted rgba(122, 133, 113, 0.18)',
+                  paddingBottom: 8,
+                }}>
+                  <div style={{
+                    width: 36, height: 36,
+                    background: 'rgba(10, 15, 10, 0.5)',
+                    border: '1px solid rgba(58, 67, 57, 0.6)',
+                    borderRadius: 2,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    flexShrink: 0,
+                  }}>
+                    <TrinketIcon id={t.id} imageSrc={t.imageSrc} size={28} alt={t.name} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div>{t.name}</div>
+                    {t.origin && (
+                      <div style={{ fontSize: 11, color: '#7a8571', fontStyle: 'italic', marginTop: 2 }}>
+                        {t.origin}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ ...styles.display, fontSize: 13, color: clan.accent, letterSpacing: '0.1em', minWidth: 24, textAlign: 'right' }}>
+                    ×{t.count}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
