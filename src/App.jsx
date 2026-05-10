@@ -38,6 +38,7 @@ import { StoryPromptView } from './components/views/StoryPromptView.jsx';
 import { FlashcardsView } from './components/views/FlashcardsView.jsx';
 import { StatsView } from './components/views/StatsView.jsx';
 import { DecorateView } from './components/views/DecorateView.jsx';
+import { FieldGuideView } from './components/views/FieldGuideView.jsx';
 
 // =====================================================================
 // MAIN COMPONENT
@@ -389,6 +390,7 @@ export default function WarriorsPath() {
       onOpenFlashcards={() => setView('flashcards')}
       onOpenStats={() => setView('stats')}
       onOpenDecorate={() => setView('decorate')}
+      onOpenFieldGuide={() => setView('fieldGuide')}
       onSwitchCharacter={() => setView('slots')}
       onExport={exportProfile}
       onImport={importProfile}
@@ -410,6 +412,10 @@ export default function WarriorsPath() {
 
   if (view === 'stats') {
     return <StatsView profile={profile} onBack={() => setView('den')} />;
+  }
+
+  if (view === 'fieldGuide') {
+    return <FieldGuideView profile={profile} onBack={() => setView('den')} />;
   }
 
   if (view === 'flashcards') {
