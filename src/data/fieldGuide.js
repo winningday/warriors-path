@@ -78,7 +78,7 @@ export const FIELD_GUIDE_PAGES = [
       '"Herbs are not shared by who deserves them," she would growl at Cinderpaw, her apprentice. "Herbs are shared by who needs them, in the portion they need."',
       'When the queens were sick she would split a bundle of borage into *halves* — one half for the nursery, one half kept back for tomorrow. When the elders coughed in leaf-bare she would split a sprig of coltsfoot into *thirds* — one third for each elder, no more, no less. When the apprentices scraped their pads on the stones she would split a poultice of marigold into *quarters* — small enough to dab on each torn paw without wasting a leaf.',
       'The Rule of Equal Piles, the medicine cats called it. *A fraction is a promise of fairness.* A half means two cats get the same. A third means three cats get the same. A fifth means five cats get the same. There is no haggling.',
-      'Cinderpaw asked once why it had to be exact. Yellowfang only narrowed her yellow eyes and said: *"Because the queen whose share was short will die before the queen whose share was full. And StarClan will know which one we let go."*',
+      'Cinderpaw asked once why it had to be exact. Yellowfang only narrowed her yellow eyes and said: *"Because a cat whose share is short does not heal as well as a cat whose share is full. The Rule of Equal Piles is what keeps every cat strong."*',
       'When you split something into equal parts, you are doing the medicine cat\'s work. You are making the promise of fairness. You are making sure no cat is shorted.',
     ],
   },
