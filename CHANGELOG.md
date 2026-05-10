@@ -11,6 +11,51 @@ For design philosophy see [`CLAUDE.md`](./CLAUDE.md).
 
 ## [Unreleased]
 
+### Added — v15.0.0-f gamification (pacing fix + first gift mechanic)
+- **Hunting Patrol caps.** Max 1 per day AND 3 per ISO week (resets Monday).
+  Once capped, the patrol greys out with kind, book-faithful mentor flavor —
+  *"The fresh-kill pile is full. Your mentor sends you toward other paths
+  today."* / *"You've hunted hard this moon — Hunting Patrol returns
+  Monday."* Other patrols stay uncapped to encourage diversification toward
+  the harder topics (multiplication / geometry / fractions / time) the
+  player was avoiding.
+- **Mentor's daily focus.** Each day the mentor names one topic — picked
+  70% of the time from her **weakest topic by accuracy**, 30% from random
+  rotation through the others. The focus topic gets **1.5× rank progress**
+  (0.5 bonus per correct, accumulated in a separate `rankBonusCorrect`
+  field so `totalCorrect` stays honest for stats). Stable per character per
+  calendar day via a `mulberry32`-seeded PRNG keyed by `(profileId, date)`.
+- **Trinkets.** Every patrol has a ~35% chance to return with a small
+  keepsake from a per-patrol-type pool: feathers, stones, claw-marks,
+  pressed leaves, moonstone shards, etc. — book-faithful items with
+  one-line origin flavor. Trinkets accumulate in a new **Your Nest**
+  panel on the Den view (count next to each, dotted dividers, dimmed
+  origin lines).
+- **Day/week pip indicator.** Each patrol button now shows `TODAY n/cap`
+  and `THIS WEEK n/cap` when caps apply, plus current today-count when
+  there's no cap. Visual feedback that the player should diversify.
+- **Mentor's focus banner** at the top of the patrol section, with the
+  bonus-rewards call-out and a one-line "your mentor wants you to focus
+  on …" hint pointing at the patrol.
+- **Focus-bonus and trinket-found call-outs** in the patrol-complete
+  view — one-shot per patrol.
+
+### Migration
+- `SAVE_VERSION` bumped to 18. **Additive only** — older saves get
+  `trinkets: {}` and `rankBonusCorrect: 0` defaulted; nothing is lost.
+
+### Files
+- `src/data/trinkets.js` (new) — per-patrol trinket pools + roll/lookup
+- `src/engine/patrolGate.js` (new) — cap state, ISO-week math, mentor
+  focus picker, focus opening lines
+- `src/engine/migration.js`, `src/engine/sr.js` — v18 schema additions
+- `src/App.jsx` — patrol-start cap guard; finishPatrol applies focus
+  bonus, rolls trinket, threads `_focusBonus`/`_trinketFound` into the
+  complete-view payload
+- `src/components/views/DenView.jsx` — focus banner, day/week pips,
+  capped state, Your Nest panel
+- `src/components/views/CompleteView.jsx` — focus bonus + trinket call-outs
+
 ### Changed — speed histogram rebucketed + per-kind breakdown
 - **New 9-bucket layout** replaces the legacy 6-bucket one (`<2s / 2–4s /
   4–7s / 7–10s / 10–20s / >20s`). Old buckets were calibrated for the

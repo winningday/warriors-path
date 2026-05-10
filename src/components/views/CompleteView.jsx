@@ -90,6 +90,45 @@ export const CompleteView = ({ profile, patrol, onReturn }) => {
           </div>
         )}
 
+        {/* v15.0.0-f focus-bonus call-out — only when this patrol matched
+            today's mentor focus and earned at least one bonus credit. */}
+        {profile._isFocusPatrol && profile._focusBonus > 0 && (
+          <div style={{
+            ...rewardSummary,
+            background: 'rgba(217, 118, 66, 0.1)',
+            border: '1px solid rgba(217, 118, 66, 0.4)',
+          }}>
+            <div style={{ ...styles.display, fontSize: 10, letterSpacing: '0.3em', color: '#d97642', marginBottom: 8, textAlign: 'center' }}>
+              ⟡ MENTOR&apos;S FOCUS BONUS ⟡
+            </div>
+            <div style={{ textAlign: 'center', fontSize: 13, color: '#e8c598', fontStyle: 'italic' }}>
+              Your mentor smiles. Today&apos;s focus paid off — bonus rank credit earned.
+            </div>
+          </div>
+        )}
+
+        {/* v15.0.0-f trinket drop — small keepsake from this patrol.
+            Lives in "Your Nest" once collected. */}
+        {profile._trinketFound && (
+          <div style={{
+            ...rewardSummary,
+            background: 'rgba(122, 133, 113, 0.08)',
+            border: '1px dashed rgba(168, 180, 145, 0.4)',
+          }}>
+            <div style={{ ...styles.display, fontSize: 10, letterSpacing: '0.3em', color: '#a39d88', marginBottom: 8, textAlign: 'center' }}>
+              ⟡ A SMALL FIND ⟡
+            </div>
+            <div style={{ textAlign: 'center', fontSize: 14, color: '#e8dcc0' }}>
+              You bring home {profile._trinketFound.name}.
+            </div>
+            {profile._trinketFound.origin && (
+              <div style={{ textAlign: 'center', fontSize: 12, color: '#a39d88', fontStyle: 'italic', marginTop: 6, lineHeight: 1.5 }}>
+                {profile._trinketFound.origin}
+              </div>
+            )}
+          </div>
+        )}
+
         <button onClick={onReturn} style={{
           width: '100%', padding: '16px',
           background: 'transparent',

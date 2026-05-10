@@ -17,6 +17,10 @@ import { SAVE_VERSION, HISTOGRAM_BUCKETS } from './sr.js';
 //     for older saves; populated as the player completes problems. Existing
 //     factsSR entries (mult:*, add:*) keep working unchanged — we only ADD
 //     new id formats (sub:a-b, geo:*, frac:*, time:*).
+//   - v18 adds gamification: `trinkets` (collected keepsakes from patrols)
+//     and `rankBonusCorrect` (focus-topic-patrol bonus toward rank, kept
+//     separate from totalCorrect so stats stay honest). Both default to
+//     empty/zero for older saves.
 
 const emptyHistogram = () => HISTOGRAM_BUCKETS.reduce((m, b) => { m[b] = 0; return m; }, {});
 
@@ -168,6 +172,11 @@ export const normalizeProfile = (raw) => {
     elapsedHistogram: normalizeHistogram(raw.elapsedHistogram),
     // v17 — per-kind sample ring for personal-fast calibration. Empty for older saves.
     kindSamples: normalizeKindSamples(raw.kindSamples),
+    // v18 — gamification. trinkets is a count map (id → count). rankBonusCorrect
+    // is the bonus contribution to rank progression from focus-topic patrols
+    // (separate from totalCorrect so stats stay honest).
+    trinkets: (raw.trinkets && typeof raw.trinkets === 'object') ? { ...raw.trinkets } : {},
+    rankBonusCorrect: typeof raw.rankBonusCorrect === 'number' ? raw.rankBonusCorrect : 0,
   };
 };
 

@@ -10,6 +10,8 @@ import { lookupStrategy } from './data/strategies.js';
 // Engine
 import { pick, weightedPick, newSlotId } from './engine/utils.js';
 import { SR_BUCKET, SAVE_VERSION, ensureFact, applySRResult, personalThreshold, appendSample } from './engine/sr.js';
+import { mentorFocus, FOCUS_RANK_BONUS_PER_CORRECT, patrolStatus } from './engine/patrolGate.js';
+import { rollTrinket } from './data/trinkets.js';
 import { autoRankForCorrect, rollEligibleChanceRank, getFullName } from './engine/rank.js';
 import { generateProblem } from './engine/generators.js';
 import { normalizeProfile, normalizeToV13 } from './engine/migration.js';
@@ -173,6 +175,18 @@ export default function WarriorsPath() {
       reveals: patrol.reveals || 0,
     };
 
+    // v15.0.0-f gamification:
+    //   1. Focus-topic bonus: if this patrol's topic matches today's mentor
+    //      focus, accumulate bonus rank credit (0.5 per correct → 1.5x effective
+    //      rank progress). totalCorrect stays honest for stats.
+    //   2. Trinket roll: ~35% chance of a small keepsake on patrol completion.
+    //      Eligibility doesn't depend on caps — even a capped patrol's drop
+    //      still rolls (in case caps are bypassed or relaxed in future).
+    const focus = mentorFocus(profile, endedAt);
+    const isFocusPatrol = focus.topic === patrol.type.topic;
+    const focusBonus = isFocusPatrol ? correct * FOCUS_RANK_BONUS_PER_CORRECT : 0;
+    const trinket = Math.random() < 0.35 ? rollTrinket(patrol.type.id) : null;
+
     const updated = await updateActive((p) => {
       const newStreak = isNewDay ? (p.streak || 0) + 1 : (p.streak || 0);
       const next = {
@@ -186,13 +200,26 @@ export default function WarriorsPath() {
         lastPlayed: today,
         patrolsToday: isNewDay ? 1 : (p.patrolsToday || 0) + 1,
         patrolHistory: [...(p.patrolHistory || []), historyEntry].slice(-200),
+        rankBonusCorrect: (p.rankBonusCorrect || 0) + focusBonus,
+        trinkets: trinket
+          ? { ...(p.trinkets || {}), [trinket.id]: ((p.trinkets || {})[trinket.id] || 0) + 1 }
+          : (p.trinkets || {}),
       };
       rewards.prey.forEach((x) => { next.preyCaught[x] = (next.preyCaught[x] || 0) + 1; });
       rewards.herbs.forEach((x) => { next.herbsCaught[x] = (next.herbsCaught[x] || 0) + 1; });
 
+      // Stash transient flags for the CompleteView to render once.
+      next._focusBonus = focusBonus;
+      next._isFocusPatrol = isFocusPatrol;
+      next._trinketFound = trinket;
+
       // Rank-up: use rankFloor-aware count so migrated saves don't demote on next patrol.
+      // rankBonusCorrect is added on top so focus-topic patrols ratchet rank faster.
       // Promotions only ratchet UP.
-      const effectiveCorrect = Math.max(next.totalCorrect, p.rankFloor || 0);
+      const effectiveCorrect = Math.max(
+        Math.floor(next.totalCorrect + (next.rankBonusCorrect || 0)),
+        p.rankFloor || 0
+      );
       const autoRank = autoRankForCorrect(p.path, effectiveCorrect);
       const ladder = ranksFor(p.path);
       const currentIdx = ladder.findIndex((r) => r.name === p.rank);
@@ -342,6 +369,9 @@ export default function WarriorsPath() {
       profile={profile}
       slotsCount={container ? container.slots.length : 0}
       onStartPatrol={(patrolType) => {
+        // Belt-and-suspenders: DenView already greys out capped patrols, but
+        // also reject here in case anything bypasses the UI.
+        if (patrolStatus(profile, patrolType.id).capped) return;
         const problems = Array.from({ length: 5 }, () => generateProblem(patrolType.topic, profile));
         setPatrol({
           type: patrolType, problems, currentIdx: 0, correct: 0,
