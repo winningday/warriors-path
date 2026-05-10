@@ -10,6 +10,8 @@ import { PATROLS } from '../../data/ranks.js';
 import { getFullName, getRankInfo, getMentorTitle, isMedicinePath } from '../../engine/rank.js';
 import { mentorFocus, patrolStatus, pickCapFlavor, patrolForTopic } from '../../engine/patrolGate.js';
 import { trinketById } from '../../data/trinkets.js';
+import { unlockedCount as fieldGuideUnlockedCount, fieldGuideEntries } from '../../engine/fieldGuide.js';
+import { earnedCount, totalCount } from '../../engine/achievements.js';
 import {
   isGatheringNight,
   hasAttendedGatheringToday,
@@ -26,6 +28,8 @@ export const DenView = ({
   onOpenFlashcards,
   onOpenStats,
   onOpenDecorate,
+  onOpenFieldGuide,
+  onOpenHonors,
   onExport,
   onImport,
 }) => {
@@ -43,6 +47,15 @@ export const DenView = ({
   const totalHerbs = Object.values(profile.herbsCaught || {}).reduce((s, n) => s + n, 0);
 
   const storiesCount = Object.keys(profile.factStories || {}).length;
+  // v15.0.0-h Phase 3 — Honors counts (X earned / Y total).
+  const honorsEarned = earnedCount(profile);
+  const honorsTotal = totalCount();
+
+  // v15.0.0-h Field Guide — count of unlocked lore pages (out of 6). Derived
+  // entirely from factsSR; no persisted field. Defensive: works on legacy
+  // saves where factsSR is missing.
+  const fieldGuideCount = fieldGuideUnlockedCount(profile);
+  const fieldGuideTotal = fieldGuideEntries(profile).length;
 
   // v15.0.0-f gamification:
   // - Mentor's focus topic (today). Persists per character per calendar day.
@@ -371,9 +384,44 @@ export const DenView = ({
           fontFamily: "'Crimson Text', serif",
           cursor: 'pointer',
           borderRadius: 2,
-          marginBottom: 18,
+          marginBottom: 10,
         }}>
           ⟡  story flashcards{storiesCount > 0 ? ` (${storiesCount})` : ''}
+        </button>
+
+        {/* v15.0.0-h Phase 3 — Honors button. Always visible; shows (X/Y)
+            count once she's earned at least one. */}
+        <button onClick={onOpenHonors} style={{
+          width: '100%', padding: '12px',
+          background: 'transparent',
+          border: '1px solid #3a4339',
+          color: '#c8c0a8',
+          fontSize: 12,
+          letterSpacing: '0.18em',
+          fontFamily: "'Crimson Text', serif",
+          cursor: 'pointer',
+          borderRadius: 2,
+          marginBottom: 10,
+        }}>
+          ⟡  HONORS{honorsEarned > 0 ? ` (${honorsEarned}/${honorsTotal})` : ''}
+        </button>
+
+        {/* v15.0.0-h Phase 4 — the Field Guide button. Always visible (the daughter
+            loves the books, and the lore is the reward), but with a quiet
+            unlocked-count suffix when she has at least one page. */}
+        <button onClick={onOpenFieldGuide} style={{
+          width: '100%', padding: '12px',
+          background: 'transparent',
+          border: '1px solid #3a4339',
+          color: '#c8c0a8',
+          fontSize: 12,
+          letterSpacing: '0.18em',
+          fontFamily: "'Crimson Text', serif",
+          cursor: 'pointer',
+          borderRadius: 2,
+          marginBottom: 18,
+        }}>
+          ⟡  FIELD GUIDE  ⟡{fieldGuideCount > 0 ? ` (${fieldGuideCount}/${fieldGuideTotal})` : ''}
         </button>
 
         <div style={{ marginTop: 16, paddingBottom: 20 }}>

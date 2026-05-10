@@ -22,6 +22,7 @@ import {
   recordEventExperienced,
   gatheringTrinket,
 } from './engine/narrativeBeats.js';
+import { checkAchievements, markEarned } from './engine/achievements.js';
 
 // Storage
 import { storage, SAVES_KEY, loadSavesContainer, persistContainer } from './storage/storage.js';
@@ -46,6 +47,8 @@ import { FlashcardsView } from './components/views/FlashcardsView.jsx';
 import { StatsView } from './components/views/StatsView.jsx';
 import { DecorateView } from './components/views/DecorateView.jsx';
 import { GatheringView } from './components/views/GatheringView.jsx';
+import { FieldGuideView } from './components/views/FieldGuideView.jsx';
+import { HonorsView } from './components/views/HonorsView.jsx';
 
 // =====================================================================
 // MAIN COMPONENT
@@ -269,6 +272,25 @@ export default function WarriorsPath() {
       return next;
     });
 
+    // v15.0.0-h Phase 3 — check for newly-earned Honors against the JUST-updated
+    // profile. Persist the earned ids so they don't re-trigger, and stash the
+    // full records on a transient field so CompleteView can render the
+    // one-shot ceremony block. Same pattern as _trinketFound / _focusBonus.
+    let newlyEarned = [];
+    if (updated) {
+      newlyEarned = checkAchievements(updated);
+      if (newlyEarned.length > 0) {
+        const newIds = newlyEarned.map((a) => a.id);
+        await updateActive((p) => {
+          const merged = markEarned(p, newIds);
+          // Stash transient records (full objects) for CompleteView. Cleared
+          // when the player taps RETURN TO CAMP (we don't persist this; it's
+          // recomputed on each patrol completion).
+          return { ...merged, _newlyEarned: newlyEarned };
+        });
+      }
+    }
+
     if (updated && updated._rankUp) {
       const r = updated.rank;
       if (r === 'Young Warrior') { setPendingCeremony('warrior');  setView('name_ceremony'); return; }
@@ -421,6 +443,8 @@ export default function WarriorsPath() {
       onOpenFlashcards={() => setView('flashcards')}
       onOpenStats={() => setView('stats')}
       onOpenDecorate={() => setView('decorate')}
+      onOpenFieldGuide={() => setView('fieldGuide')}
+      onOpenHonors={() => setView('honors')}
       onSwitchCharacter={() => setView('slots')}
       onExport={exportProfile}
       onImport={importProfile}
@@ -461,6 +485,10 @@ export default function WarriorsPath() {
 
   if (view === 'stats') {
     return <StatsView profile={profile} onBack={() => setView('den')} />;
+  }
+
+  if (view === 'fieldGuide') {
+    return <FieldGuideView profile={profile} onBack={() => setView('den')} />;
   }
 
   if (view === 'flashcards') {
@@ -679,15 +707,28 @@ export default function WarriorsPath() {
       profile={profile}
       patrol={patrol}
       onReturn={async () => {
-        // v15.0.0-h — one-shot beat flag: clear so it doesn't re-render
+        // v15.0.0-h Phase 5 — one-shot beat flag: clear so it doesn't re-render
         // on the next completion. Stays as null so older views are happy.
         if (profile && profile._narrativeBeat) {
           await updateActive((p) => ({ ...p, _narrativeBeat: null }));
+        }
+        // v15.0.0-h Phase 3 — clear the one-shot _newlyEarned stash so the
+        // ceremony doesn't render again when the player re-enters the den.
+        if (profile && profile._newlyEarned) {
+          await updateActive((p) => {
+            const next = { ...p };
+            delete next._newlyEarned;
+            return next;
+          });
         }
         setPatrol(null);
         setView('den');
       }}
     />;
+  }
+
+  if (view === 'honors') {
+    return <HonorsView profile={profile} onBack={() => setView('den')} />;
   }
 
   return null;
