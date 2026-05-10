@@ -84,6 +84,20 @@ export const rollTrinket = (patrolId) => {
   return pool[pool.length - 1];
 };
 
+// v15.0.0-h — narrative-beat trinkets aren't in patrol pools (so rollTrinket
+// won't ever roll them), but they still need a lookup row for "Your Nest"
+// and the cat-decoration UI. We register them by id here.
+const EXTRA_TRINKETS = {
+  'g-gathering-token': {
+    id: 'g-gathering-token',
+    slot: 'general',
+    imageSrc: null,
+    name: 'a Gathering token',
+    origin: 'A scrap of bark scratched with the four-Clan mark, kept from the night the Clans met under the full moon.',
+    weight: 0, // not eligible for the patrol-trinket roll
+  },
+};
+
 // Look up a trinket's metadata by its id (for rendering "Your Nest" entries
 // from the persisted { [id]: count } map). Falls back to a synthetic entry
 // for unknown ids so removing a trinket from the catalog never crashes the
@@ -93,5 +107,6 @@ export const trinketById = (id) => {
     const found = pool.find((t) => t.id === id);
     if (found) return found;
   }
+  if (EXTRA_TRINKETS[id]) return EXTRA_TRINKETS[id];
   return { id, name: id, origin: '', weight: 1 };
 };

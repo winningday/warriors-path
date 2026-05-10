@@ -276,6 +276,23 @@ export const TRINKET_ICONS = {
   'v-night-mist':    () => <Mist />,
   'v-acorn':         () => <Acorn />,
   'v-spider-silk':   () => <SpiderSilk />,
+
+  // v15.0.0-h — narrative beats. The Gathering token is a small bark scrap
+  // scratched with the four-Clan mark, kept from the night under the moon.
+  'g-gathering-token': () => (
+    <g>
+      {/* Full moon disc behind the marks */}
+      <circle cx="16" cy="13" r="6" fill="#e8dcc0" opacity="0.55" />
+      <circle cx="16" cy="13" r="6" fill="none" stroke="#a39d88" strokeWidth="0.4" />
+      {/* Four scratched Clan marks in a clearing — one per Clan */}
+      <path d="M8,22 L12,18 M12,22 L8,18" stroke="#3a2a20" strokeWidth="0.9" strokeLinecap="round" />
+      <path d="M14,24 L18,20 M18,24 L14,20" stroke="#3a2a20" strokeWidth="0.9" strokeLinecap="round" />
+      <path d="M20,22 L24,18 M24,22 L20,18" stroke="#3a2a20" strokeWidth="0.9" strokeLinecap="round" />
+      <path d="M11,28 L14,25 M14,28 L11,25" stroke="#3a2a20" strokeWidth="0.7" strokeLinecap="round" />
+      {/* Faint bark-grain outlines */}
+      <path d="M4,26 Q16,28 28,26" stroke="#5a4a38" strokeWidth="0.4" fill="none" opacity="0.5" />
+    </g>
+  ),
 };
 
 // Wrapper component. If the trinket entry has an `imageSrc`, we render

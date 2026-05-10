@@ -27,6 +27,11 @@ import { SAVE_VERSION, HISTOGRAM_BUCKETS } from './sr.js';
 //   - v15.0.0-h (Phase 3, no SAVE_VERSION bump) adds `achievementsEarned`:
 //     a list of stable id strings the player has earned. Empty for older
 //     saves; populated as patrols complete via checkAchievements().
+//   - v15.0.0-h (Phase 5, no SAVE_VERSION bump) adds narrative-beat fields:
+//       lastGatheringAt    — timestamp (ms) of the last Gathering attended
+//       lastDreamAt        — timestamp (ms) of the last StarClan dream seen
+//       eventsExperienced  — array of random-event ids the player has met
+//     All additive — older saves migrate to null/[] defaults.
 
 const emptyHistogram = () => HISTOGRAM_BUCKETS.reduce((m, b) => { m[b] = 0; return m; }, {});
 
@@ -202,10 +207,18 @@ export const normalizeProfile = (raw) => {
     equipped: normalizeEquipped(raw.equipped),
     // v15.0.0-h (Phase 3) — book-faithful Honors. Stable ID strings the
     // player has already earned. Additive; older saves get an empty array.
-    // Unknown ids are tolerated (catalog removals shouldn't break old saves).
-    // SAVE_VERSION is NOT bumped — next functional release will handle that.
     achievementsEarned: Array.isArray(raw.achievementsEarned)
       ? raw.achievementsEarned.filter((id) => typeof id === 'string')
+      : [],
+    // v15.0.0-h (Phase 5) — narrative beats. All additive defaults.
+    //   lastGatheringAt   — last Gathering night attended (ms timestamp).
+    //   lastDreamAt       — last StarClan dream seen (ms timestamp).
+    //   eventsExperienced — random-event ids the player has met (deduped,
+    //                       most-recent-last, cap 50 in engine).
+    lastGatheringAt: typeof raw.lastGatheringAt === 'number' ? raw.lastGatheringAt : null,
+    lastDreamAt:     typeof raw.lastDreamAt     === 'number' ? raw.lastDreamAt     : null,
+    eventsExperienced: Array.isArray(raw.eventsExperienced)
+      ? raw.eventsExperienced.filter((id) => typeof id === 'string')
       : [],
   };
 };

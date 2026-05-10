@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { styles, smallBtn } from '../shared/styles.js';
 import { FontLoader } from '../shared/FontLoader.jsx';
 import { StatCard } from '../shared/StatCard.jsx';
@@ -12,8 +12,27 @@ import { mentorFocus, patrolStatus, pickCapFlavor, patrolForTopic } from '../../
 import { trinketById } from '../../data/trinkets.js';
 import { unlockedCount as fieldGuideUnlockedCount, fieldGuideEntries } from '../../engine/fieldGuide.js';
 import { earnedCount, totalCount } from '../../engine/achievements.js';
+import {
+  isGatheringNight,
+  hasAttendedGatheringToday,
+  pickStarClanDream,
+} from '../../engine/narrativeBeats.js';
 
-export const DenView = ({ profile, slotsCount, onStartPatrol, onSwitchCharacter, onOpenFlashcards, onOpenStats, onOpenDecorate, onOpenFieldGuide, onOpenHonors, onExport, onImport }) => {
+export const DenView = ({
+  profile,
+  slotsCount,
+  onStartPatrol,
+  onStartGathering,
+  onDismissDream,
+  onSwitchCharacter,
+  onOpenFlashcards,
+  onOpenStats,
+  onOpenDecorate,
+  onOpenFieldGuide,
+  onOpenHonors,
+  onExport,
+  onImport,
+}) => {
   const clan = CLANS.find((c) => c.name === profile.clan);
   const fullName = getFullName(profile);
   const { current, next } = getRankInfo(profile);
@@ -55,6 +74,16 @@ export const DenView = ({ profile, slotsCount, onStartPatrol, onSwitchCharacter,
     .filter(([, count]) => count > 0)
     .map(([id, count]) => ({ ...trinketById(id), count }))
     .sort((a, b) => b.count - a.count);
+
+  // v15.0.0-h narrative beats.
+  // - Gathering banner: only on the first Saturday of the month, and only
+  //   when this character hasn't already attended today.
+  // - StarClan dream: at most once every 7 days; reverent tone; collapses
+  //   to a small notification until tapped. Dismissing clears the gate.
+  const now = Date.now();
+  const gatheringTonight = isGatheringNight(now) && !hasAttendedGatheringToday(profile, now);
+  const dream = pickStarClanDream(profile, now);
+  const [dreamOpen, setDreamOpen] = useState(false);
 
   return (
     <div style={styles.root}>
@@ -130,6 +159,94 @@ export const DenView = ({ profile, slotsCount, onStartPatrol, onSwitchCharacter,
               Your mentor wants you to focus on {focusPatrol.subtitle.toLowerCase()} today.
             </div>
           </div>
+        )}
+
+        {/* v15.0.0-h — StarClan dream notification. Cool blues/silver to
+            distinguish from warm mentor-focus / patrol palette. Reverent.
+            Soft tap-to-expand; dismiss button clears the gate. */}
+        {dream && (
+          <div style={{
+            background: 'rgba(120, 150, 200, 0.06)',
+            border: '1px solid rgba(160, 190, 230, 0.35)',
+            padding: '12px 14px',
+            marginBottom: 14,
+            borderRadius: 2,
+            cursor: dreamOpen ? 'default' : 'pointer',
+          }}
+            onClick={() => { if (!dreamOpen) setDreamOpen(true); }}
+            role={dreamOpen ? undefined : 'button'}
+            aria-label="A dream came to you"
+          >
+            <div style={{ ...styles.display, fontSize: 9, letterSpacing: '0.3em', color: '#9ab4cc', marginBottom: 6, textAlign: 'center' }}>
+              ⟡  A DREAM CAME TO YOU  ⟡
+            </div>
+            {!dreamOpen && (
+              <div style={{ fontSize: 12, color: '#a3b3c4', fontStyle: 'italic', textAlign: 'center' }}>
+                The stars stirred in your sleep last night. Tap to remember.
+              </div>
+            )}
+            {dreamOpen && (
+              <div style={{ marginTop: 6 }}>
+                <div style={{ fontSize: 13, color: '#c0cbd9', fontStyle: 'italic', lineHeight: 1.6, marginBottom: 10 }}>
+                  {dream.opening}
+                </div>
+                <div style={{ fontSize: 13, color: '#d6dde7', lineHeight: 1.6, marginBottom: 10 }}>
+                  {dream.body}
+                </div>
+                <div style={{ fontSize: 12, color: '#9ab4cc', fontStyle: 'italic', lineHeight: 1.6, marginBottom: 12 }}>
+                  {dream.closing}
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onDismissDream) onDismissDream();
+                    setDreamOpen(false);
+                  }}
+                  style={{
+                    width: '100%', padding: '8px',
+                    background: 'transparent',
+                    border: '1px solid rgba(160, 190, 230, 0.45)',
+                    color: '#9ab4cc',
+                    fontSize: 10,
+                    letterSpacing: '0.3em',
+                    fontFamily: "'Crimson Text', serif",
+                    cursor: 'pointer',
+                    borderRadius: 2,
+                  }}
+                >
+                  CARRY IT WITH YOU
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* v15.0.0-h — Gathering night banner. First Saturday of the month
+            only; vanishes once attended for the day. Tap to attend (no math,
+            pure story; awards the g-gathering-token trinket). */}
+        {gatheringTonight && (
+          <button
+            onClick={onStartGathering}
+            style={{
+              width: '100%',
+              background: 'rgba(226, 200, 112, 0.08)',
+              border: '1px solid rgba(226, 200, 112, 0.55)',
+              padding: '14px 16px',
+              marginBottom: 14,
+              borderRadius: 2,
+              color: '#e8dcc0',
+              textAlign: 'left',
+              cursor: 'pointer',
+              fontFamily: "'Crimson Text', serif",
+            }}
+          >
+            <div style={{ ...styles.display, fontSize: 10, letterSpacing: '0.35em', color: '#e2c870', marginBottom: 6, textAlign: 'center' }}>
+              ⟡  GATHERING NIGHT  ⟡
+            </div>
+            <div style={{ fontSize: 13, color: '#e8dcc0', fontStyle: 'italic', textAlign: 'center', lineHeight: 1.5 }}>
+              The four Clans meet under a full moon. Cross the moor and listen.
+            </div>
+          </button>
         )}
 
         <div style={{ ...styles.display, fontSize: 11, letterSpacing: '0.3em', color: '#7a8571', marginBottom: 12, textAlign: 'center' }}>
