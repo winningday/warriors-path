@@ -11,6 +11,18 @@ For design philosophy see [`CLAUDE.md`](./CLAUDE.md).
 
 ## [Unreleased]
 
+### Fixed — v15.0.0-i
+- **Skip-story crash at end of patrol.** When the "tell yourself a story"
+  prompt appeared after the *last* correct answer of a patrol, tapping
+  SKIP (or SAVE) cleared the overlay before `finishPatrol` had finished
+  switching the view, so the patrol view re-rendered with an out-of-bounds
+  problem index and crashed on `current.kind`. The same race also ate the
+  patrol record itself: `patrolHistory`, `patrolsToday`, and the
+  mentor's-focus 1.5× rank bonus were never persisted, so a focus-topic
+  patrol completed via the story prompt "didn't count." The handlers now
+  await `finishPatrol` before clearing the overlay, and the patrol view
+  has a defensive `if (!current) return null` guard.
+
 ### Added — v15.0.0-h Phase 5 narrative beats
 - **Random patrol events.** ~1-in-30 chance per patrol completion of a
   small, book-faithful narrative beat (no math, just flavor). 12 distinct

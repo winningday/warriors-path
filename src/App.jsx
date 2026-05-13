@@ -520,12 +520,19 @@ export default function WarriorsPath() {
       onChange={setStoryDraft}
       onSkip={async () => {
         const wasResuming = patrol && patrol._pendingResume;
-        setStoryPrompt(null); setStoryDraft('');
         if (wasResuming) {
           const np = { ...patrol }; delete np._pendingResume; setPatrol(np);
-          if (patrol.currentIdx >= patrol.problems.length) finishPatrol(patrol.correct, patrol.rewards);
-          else setProblemStartedAt(Date.now());
+          // Keep the story-prompt overlay mounted while finishPatrol runs:
+          // it switches the view to 'complete', so clearing storyPrompt
+          // earlier would briefly render the patrol view with an
+          // out-of-bounds currentIdx and crash on `current.kind`.
+          if (patrol.currentIdx >= patrol.problems.length) {
+            await finishPatrol(patrol.correct, patrol.rewards);
+          } else {
+            setProblemStartedAt(Date.now());
+          }
         }
+        setStoryPrompt(null); setStoryDraft('');
       }}
       onSave={async () => {
         const trimmed = storyDraft.trim().slice(0, 200);
@@ -533,18 +540,24 @@ export default function WarriorsPath() {
           await updateActive((p) => ({ ...p, factStories: { ...(p.factStories || {}), [storyPrompt.factId]: trimmed } }));
         }
         const wasResuming = patrol && patrol._pendingResume;
-        setStoryPrompt(null); setStoryDraft('');
         if (wasResuming) {
           const np = { ...patrol }; delete np._pendingResume; setPatrol(np);
-          if (patrol.currentIdx >= patrol.problems.length) finishPatrol(patrol.correct, patrol.rewards);
-          else setProblemStartedAt(Date.now());
+          if (patrol.currentIdx >= patrol.problems.length) {
+            await finishPatrol(patrol.correct, patrol.rewards);
+          } else {
+            setProblemStartedAt(Date.now());
+          }
         }
+        setStoryPrompt(null); setStoryDraft('');
       }}
     />;
   }
 
   if (view === 'patrol') {
     const current = patrol.problems[patrol.currentIdx];
+    // Defensive: if currentIdx walked off the end (e.g. while finishPatrol is
+    // still mid-await), render nothing rather than crash on `current.kind`.
+    if (!current) return null;
     const clan = CLANS.find((c) => c.name === profile.clan);
     const factStory = current.factId ? (profile.factStories || {})[current.factId] : null;
     return <PatrolView
