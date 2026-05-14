@@ -11,6 +11,27 @@ For design philosophy see [`CLAUDE.md`](./CLAUDE.md).
 
 ## [Unreleased]
 
+### Fixed — v15.0.0-i
+- **Skip-story crash at end of patrol.** When the "tell yourself a story"
+  prompt appeared after the *last* correct answer of a patrol, tapping
+  SKIP (or SAVE) cleared the overlay before `finishPatrol` had finished
+  switching the view, so the patrol view re-rendered with an out-of-bounds
+  problem index and crashed on `current.factId`. The skip/save handlers
+  now share a `dismissStoryPrompt` helper that awaits `finishPatrol`
+  before clearing the overlay, and the patrol view has a defensive
+  `if (!patrol || patrol.currentIdx >= patrol.problems.length) return null`
+  guard.
+- **Missing trinkets and "round didn't get counted."** When a patrol
+  completion also earned an Honor, `finishPatrol` ran two sequential
+  `updateActive` calls; the second read a stale `container` from the App
+  closure (closures don't update mid-handler between awaits) and
+  overwrote the first call's `_trinketFound`, `totalCorrect`,
+  `patrolHistory` entry, and mentor's-focus 1.5× rank bonus. The two
+  updates are now folded into a single mutator, and a `containerRef`
+  mirror keeps any future chained updates reading from the freshest
+  state. Fixes the player's "tokens we built with images at 30% don't
+  show up" and "she did the mentor's focus but it didn't count" reports.
+
 ### Added — v15.0.0-h Phase 5 narrative beats
 - **Random patrol events.** ~1-in-30 chance per patrol completion of a
   small, book-faithful narrative beat (no math, just flavor). 12 distinct
