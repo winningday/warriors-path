@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 // Data
 import { CLANS, MENTORS_BY_CLAN, MEDICINE_CATS_BY_CLAN } from './data/clans.js';
@@ -68,6 +68,19 @@ export default function WarriorsPath() {
   const [patrolStartedAt, setPatrolStartedAt] = useState(null);
   const [pendingCeremony, setPendingCeremony] = useState(null);
 
+  // Mirror of `container` that's always up to date within a single event-handler
+  // tick. The closure value of `container` doesn't update between successive
+  // `await`s in the same handler, so two `updateActive` calls in a row would
+  // both rebuild from the pre-handler snapshot — the second overwriting the
+  // first. The ref is written synchronously inside `persist`, so any chained
+  // updates start from the freshest state. Bug repro before the fix: when a
+  // patrol completion earned an achievement, the follow-up updateActive for
+  // _newlyEarned blew away the patrol's _trinketFound, totalCorrect bump, and
+  // patrolHistory entry — symptoms the player reported as "no tokens" and
+  // "round didn't get counted".
+  const containerRef = useRef(null);
+  containerRef.current = container;
+
   const profile = container && container.slots.find((s) => s.id === container.activeId);
 
   useEffect(() => { (async () => {
@@ -90,13 +103,18 @@ export default function WarriorsPath() {
 
   // ---- Slot/profile helpers ----
 
-  const persist = async (next) => { setContainer(next); await persistContainer(next); };
+  const persist = async (next) => {
+    containerRef.current = next;
+    setContainer(next);
+    await persistContainer(next);
+  };
 
   const updateActive = async (mutator) => {
-    if (!container) return;
+    const current = containerRef.current;
+    if (!current) return;
     const next = {
-      ...container,
-      slots: container.slots.map((s) => (s.id === container.activeId ? mutator(s) : s)),
+      ...current,
+      slots: current.slots.map((s) => (s.id === current.activeId ? mutator(s) : s)),
     };
     await persist(next);
     return next.slots.find((s) => s.id === next.activeId);
@@ -205,6 +223,12 @@ export default function WarriorsPath() {
     const narrativeBeat = rollRandomEvent(profile);
     const eventTrinketId = narrativeBeat?.reward?.trinketId || null;
 
+    // Single atomic update so achievement-marking can't blow away the patrol's
+    // _trinketFound / totalCorrect / patrolHistory / etc. Earlier code did this
+    // as two sequential updateActive calls; the second read a stale closure of
+    // `container` and overwrote everything from the first. The containerRef
+    // fix above also prevents that, but folding into one mutator makes the
+    // intent obvious and removes the race entirely.
     const updated = await updateActive((p) => {
       const newStreak = isNewDay ? (p.streak || 0) + 1 : (p.streak || 0);
       const next = {
@@ -269,27 +293,20 @@ export default function WarriorsPath() {
         next._oldSuffix = p.suffix;
         next.suffix = 'star';
       }
-      return next;
-    });
 
-    // v15.0.0-h Phase 3 — check for newly-earned Honors against the JUST-updated
-    // profile. Persist the earned ids so they don't re-trigger, and stash the
-    // full records on a transient field so CompleteView can render the
-    // one-shot ceremony block. Same pattern as _trinketFound / _focusBonus.
-    let newlyEarned = [];
-    if (updated) {
-      newlyEarned = checkAchievements(updated);
+      // v15.0.0-h Phase 3 — check for newly-earned Honors against the
+      // just-updated profile and fold them into the same mutation. Stash
+      // full records on _newlyEarned so CompleteView can render the
+      // one-shot ceremony block. Cleared when the player taps RETURN TO CAMP.
+      const newlyEarned = checkAchievements(next);
       if (newlyEarned.length > 0) {
         const newIds = newlyEarned.map((a) => a.id);
-        await updateActive((p) => {
-          const merged = markEarned(p, newIds);
-          // Stash transient records (full objects) for CompleteView. Cleared
-          // when the player taps RETURN TO CAMP (we don't persist this; it's
-          // recomputed on each patrol completion).
-          return { ...merged, _newlyEarned: newlyEarned };
-        });
+        const merged = markEarned(next, newIds);
+        merged._newlyEarned = newlyEarned;
+        return merged;
       }
-    }
+      return next;
+    });
 
     if (updated && updated._rankUp) {
       const r = updated.rank;
@@ -513,51 +530,52 @@ export default function WarriorsPath() {
 
   // Story prompt overlay takes precedence over the patrol view.
   if (storyPrompt) {
+    // End-of-patrol handler shared by Skip and Save. We MUST keep the story
+    // prompt rendered until finishPatrol has changed the view to 'complete'
+    // (or a ceremony view); otherwise an intermediate render falls into
+    // `view === 'patrol'` with patrol.currentIdx === patrol.problems.length,
+    // and `patrol.problems[currentIdx]` is undefined — which crashed the app
+    // when the daughter pressed "SKIP — KEEP HUNTING" on the last problem of
+    // a herb patrol. Awaiting finishPatrol first means the view has already
+    // flipped by the time we clear storyPrompt.
+    const dismissStoryPrompt = async () => {
+      const wasResuming = patrol && patrol._pendingResume;
+      const atEndOfPatrol = wasResuming && patrol.currentIdx >= patrol.problems.length;
+      if (atEndOfPatrol) {
+        await finishPatrol(patrol.correct, patrol.rewards);
+      }
+      setStoryPrompt(null); setStoryDraft('');
+      if (wasResuming) {
+        setPatrol((p) => {
+          if (!p) return p;
+          const np = { ...p }; delete np._pendingResume; return np;
+        });
+        if (!atEndOfPatrol) setProblemStartedAt(Date.now());
+      }
+    };
     return <StoryPromptView
       profile={profile}
       factQuestion={storyPrompt.question}
       story={storyDraft}
       onChange={setStoryDraft}
-      onSkip={async () => {
-        const wasResuming = patrol && patrol._pendingResume;
-        if (wasResuming) {
-          const np = { ...patrol }; delete np._pendingResume; setPatrol(np);
-          // Keep the story-prompt overlay mounted while finishPatrol runs:
-          // it switches the view to 'complete', so clearing storyPrompt
-          // earlier would briefly render the patrol view with an
-          // out-of-bounds currentIdx and crash on `current.kind`.
-          if (patrol.currentIdx >= patrol.problems.length) {
-            await finishPatrol(patrol.correct, patrol.rewards);
-          } else {
-            setProblemStartedAt(Date.now());
-          }
-        }
-        setStoryPrompt(null); setStoryDraft('');
-      }}
+      onSkip={dismissStoryPrompt}
       onSave={async () => {
         const trimmed = storyDraft.trim().slice(0, 200);
         if (trimmed) {
           await updateActive((p) => ({ ...p, factStories: { ...(p.factStories || {}), [storyPrompt.factId]: trimmed } }));
         }
-        const wasResuming = patrol && patrol._pendingResume;
-        if (wasResuming) {
-          const np = { ...patrol }; delete np._pendingResume; setPatrol(np);
-          if (patrol.currentIdx >= patrol.problems.length) {
-            await finishPatrol(patrol.correct, patrol.rewards);
-          } else {
-            setProblemStartedAt(Date.now());
-          }
-        }
-        setStoryPrompt(null); setStoryDraft('');
+        await dismissStoryPrompt();
       }}
     />;
   }
 
   if (view === 'patrol') {
+    // Defensive: if we ever land here with currentIdx past the end (e.g. a
+    // late render between the last problem completing and finishPatrol's
+    // setView('complete') landing), render nothing for one tick rather than
+    // dereferencing `patrol.problems[undefined]` and crashing.
+    if (!patrol || patrol.currentIdx >= patrol.problems.length) return null;
     const current = patrol.problems[patrol.currentIdx];
-    // Defensive: if currentIdx walked off the end (e.g. while finishPatrol is
-    // still mid-await), render nothing rather than crash on `current.kind`.
-    if (!current) return null;
     const clan = CLANS.find((c) => c.name === profile.clan);
     const factStory = current.factId ? (profile.factStories || {})[current.factId] : null;
     return <PatrolView

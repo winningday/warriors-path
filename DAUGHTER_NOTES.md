@@ -91,10 +91,11 @@ Each entry is dated. Closed entries (✓) have been addressed in code; open entr
 
 ---
 
-## v15.0.0-h feedback (2026-05-13) — crash + missed patrol
+## v15.0.0-h feedback (2026-05-13) — crash, missing trinkets, missed patrol
 
-- ✓ **"It asks her to fill in a story, and if she presses skip, the page crashes."** Happened twice, always near the end of a patrol, sometimes with no wrong answers. — *(v15.0.0-i: race in the skip/save handlers — they cleared the story-prompt overlay before `finishPatrol` had switched the view, so the patrol view briefly re-rendered with an out-of-bounds problem index and crashed. Now the handlers await `finishPatrol` before clearing, plus a defensive null-check in the patrol render.)*
-- ✓ **"She did the mentor's focus, but it didn't count it as a patrol."** — *(v15.0.0-i: same underlying bug. The crash happened mid-`finishPatrol`, so `patrolHistory`, `patrolsToday`, and the mentor's-focus 1.5× rank bonus never got persisted. Fix above resolves both symptoms.)*
+- ✓ **"It asks her to fill in a story, and if she presses skip, the page crashes."** Happened twice, always near the end of a patrol, sometimes with no wrong answers. — *(v15.0.0-i: race in the skip/save handlers — they cleared the story-prompt overlay before `finishPatrol` had switched the view, so the patrol view briefly re-rendered with an out-of-bounds problem index and crashed. The handlers now share a `dismissStoryPrompt` helper that awaits `finishPatrol` before clearing, plus a defensive null-check in the patrol render.)*
+- ✓ **"The tokens we built with images at 30% don't show up."** — *(v15.0.0-i: stale-closure bug in `finishPatrol`. When a patrol also earned an Honor, two sequential `updateActive` calls ran back-to-back; the second read the pre-patrol `container` from the App closure and overwrote `_trinketFound`, the `trinkets` map, and `totalCorrect`. Folded the two updates into one mutator and added a `containerRef` so chained updates always see the freshest state.)*
+- ✓ **"She did the mentor's focus, but it didn't count it as a patrol."** — *(v15.0.0-i: same stale-closure bug as the missing trinkets. The second `updateActive` blew away the patrol's `patrolHistory` entry, `patrolsToday` increment, and 1.5× focus-topic rank bonus. Fix above resolves both symptoms.)*
 
 ---
 
