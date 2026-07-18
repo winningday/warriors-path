@@ -12,8 +12,22 @@ export const SPEED_DAYS_SHOWN = 7;
 // addition single-digit pairs 2..9, both order-normalized so a <= b.
 // Subtraction has no fixed enumerable universe, so its unseen count stays 0.
 const MULT_RANGE = { lo: 2, hi: 12 };
-const MULT_UNIVERSE = 66;
-const ADD_UNIVERSE = 36;
+const ADD_RANGE = { lo: 2, hi: 9 };
+
+const enumeratePairIds = ({ lo, hi }, toId) => {
+  const ids = [];
+  for (let a = lo; a <= hi; a++) {
+    for (let b = a; b <= hi; b++) ids.push(toId(a, b));
+  }
+  return ids;
+};
+
+// 66 mult ids and 36 add ids. genAdd's sub-small branch also writes add: ids
+// outside this universe (e.g. add:1+5, add:2+12); those are deliberately not
+// counted here so unseen never goes negative and counts always sum to the
+// universe size.
+const MULT_UNIVERSE_IDS = enumeratePairIds(MULT_RANGE, (a, b) => `mult:${a}x${b}`);
+const ADD_UNIVERSE_IDS = enumeratePairIds(ADD_RANGE, (a, b) => `add:${a}+${b}`);
 
 // Human label for a fact id, e.g. 'mult:7x8' -> '7 × 8'.
 export const factLabel = (id) => {
@@ -44,16 +58,31 @@ const buildMultGrid = (sr) => {
   return grid;
 };
 
-const countBuckets = (sr, prefix, universe) => {
+// Count buckets over a fixed universe of ids: every id is looked up directly
+// (the same way the mult grid works), so out-of-universe ids can never
+// inflate the counts and they always sum to the universe size.
+const countUniverseBuckets = (sr, universeIds) => {
   const counts = { unseen: 0, wild: 0, tracking: 0, trusted: 0 };
-  let tracked = 0;
-  for (const [id, entry] of Object.entries(sr)) {
-    if (!id.startsWith(prefix)) continue;
-    tracked += 1;
+  for (const id of universeIds) {
+    const entry = sr[id];
+    if (!entry) {
+      counts.unseen += 1;
+      continue;
+    }
     const bucket = entry.bucket || SR_BUCKET.WILD;
     if (counts[bucket] !== undefined) counts[bucket] += 1;
   }
-  if (universe !== null) counts.unseen = Math.max(0, universe - tracked);
+  return counts;
+};
+
+// Count buckets for a prefix with no enumerable universe (sub:); unseen stays 0.
+const countPrefixBuckets = (sr, prefix) => {
+  const counts = { unseen: 0, wild: 0, tracking: 0, trusted: 0 };
+  for (const [id, entry] of Object.entries(sr)) {
+    if (!id.startsWith(prefix)) continue;
+    const bucket = entry.bucket || SR_BUCKET.WILD;
+    if (counts[bucket] !== undefined) counts[bucket] += 1;
+  }
   return counts;
 };
 
@@ -85,9 +114,9 @@ export const tutorReport = (profile, now = Date.now()) => {
     accuracy: attempted > 0 ? (profile.totalCorrect || 0) / attempted : null,
     multGrid: buildMultGrid(sr),
     buckets: {
-      mult: countBuckets(sr, 'mult:', MULT_UNIVERSE),
-      add: countBuckets(sr, 'add:', ADD_UNIVERSE),
-      sub: countBuckets(sr, 'sub:', null),
+      mult: countUniverseBuckets(sr, MULT_UNIVERSE_IDS),
+      add: countUniverseBuckets(sr, ADD_UNIVERSE_IDS),
+      sub: countPrefixBuckets(sr, 'sub:'),
     },
     recentWins: buildRecentWins(sr, now),
     speedByDay: buildSpeedByDay(sessionLog),

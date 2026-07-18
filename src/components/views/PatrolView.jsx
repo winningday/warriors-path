@@ -35,6 +35,11 @@ export const PatrolView = ({ patrol, profile, current, factStory, answerInput, s
           borderRadius: 2,
           marginBottom: 20,
           minHeight: 220,
+          // Quiet drills have no story line; center the bare fact vertically
+          // so the card does not read as top-heavy with empty space below.
+          ...(!current.story && !factStory ? {
+            display: 'flex', flexDirection: 'column', justifyContent: 'center',
+          } : {}),
         }}>
           {factStory && (
             <div style={{

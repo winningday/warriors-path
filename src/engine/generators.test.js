@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { generateProblem } from './generators.js';
+import { generateProblem, generatePatrolProblems } from './generators.js';
 
 const profile = { clan: 'ThunderClan', path: 'warrior', mentor: 'Lionheart', factsSR: {} };
 
@@ -23,5 +23,27 @@ describe('quiet drills', () => {
       expect(p.question).toMatch(/^\d+ × \d+$/);
       expect(p.answer).toBe(p.factA * p.factB);
     });
+  });
+});
+
+describe('generatePatrolProblems', () => {
+  it('returns the requested number of problems', () => {
+    const profile = { clan: 'ThunderClan', path: 'warrior', mentor: 'Lionheart', factsSR: {} };
+    expect(generatePatrolProblems('mult', profile, 5)).toHaveLength(5);
+  });
+
+  it('never repeats the same fact within one patrol, even with a lap-eligible fact', () => {
+    const now = Date.now();
+    const profile = {
+      clan: 'ThunderClan', path: 'warrior', mentor: 'Lionheart',
+      factsSR: {
+        'mult:7x8': { bucket: 'tracking', correctStreak: 1, seen: 3, lastSeenAt: now - 60000, promotedAt: now - 60000 },
+      },
+    };
+    for (let trial = 0; trial < 300; trial++) {
+      const problems = generatePatrolProblems('mult', profile, 5);
+      const ids = problems.map((p) => p.factId).filter(Boolean);
+      expect(new Set(ids).size).toBe(ids.length);
+    }
   });
 });

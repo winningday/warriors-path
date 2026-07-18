@@ -72,18 +72,24 @@ const handleSync = async (req, res, dataDir) => {
   if (typeof key !== 'string' || !KEY_RE.test(key)) {
     return sendJson(res, 400, { error: 'invalid key' });
   }
-  if (!profile || typeof profile !== 'object') {
+  if (!profile || typeof profile !== 'object' || Array.isArray(profile)) {
     return sendJson(res, 400, { error: 'invalid profile' });
   }
 
   const doc = JSON.stringify({ updatedAt: new Date().toISOString(), profile });
   await fs.mkdir(dataDir, { recursive: true });
   // Atomic write: tmp file then rename, so a crash mid-write never leaves
-  // a truncated <key>.json behind.
+  // a truncated <key>.json behind. A failed rename removes its tmp file so
+  // they cannot accumulate in the data dir.
   const finalPath = path.join(dataDir, `${key}.json`);
   const tmpPath = `${finalPath}.tmp-${crypto.randomBytes(6).toString('hex')}`;
   await fs.writeFile(tmpPath, doc, 'utf8');
-  await fs.rename(tmpPath, finalPath);
+  try {
+    await fs.rename(tmpPath, finalPath);
+  } catch (err) {
+    await fs.unlink(tmpPath).catch(() => {});
+    throw err;
+  }
   return sendJson(res, 200, { ok: true });
 };
 

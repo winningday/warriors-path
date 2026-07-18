@@ -5,7 +5,7 @@ import {
 } from './pacing.js';
 import { REST_ADVICE } from '../data/flavor.js';
 
-const r = (round, medianMs, samples = 5) => ({ round, medianMs, samples, correct: 4, total: 5 });
+const r = (round, medianMs, samples = 5, topic = 'mult') => ({ round, topic, medianMs, samples, correct: 4, total: 5 });
 
 describe('median', () => {
   it('odd length', () => expect(median([5, 1, 3])).toBe(3));
@@ -14,13 +14,13 @@ describe('median', () => {
 });
 
 describe('roundRecord', () => {
-  it('computes the median of response times', () => {
-    expect(roundRecord([5000, 3000, 4000], 4, 5)).toEqual({
-      medianMs: 4000, samples: 3, correct: 4, total: 5,
+  it('computes the median of response times and carries the topic', () => {
+    expect(roundRecord([5000, 3000, 4000], 4, 5, 'mult')).toEqual({
+      topic: 'mult', medianMs: 4000, samples: 3, correct: 4, total: 5,
     });
   });
-  it('medianMs null when responseTimes empty', () => {
-    expect(roundRecord([], 2, 5)).toEqual({ medianMs: null, samples: 0, correct: 2, total: 5 });
+  it('medianMs null when responseTimes empty, topic defaults null', () => {
+    expect(roundRecord([], 2, 5)).toEqual({ topic: null, medianMs: null, samples: 0, correct: 2, total: 5 });
   });
 });
 
@@ -126,6 +126,39 @@ describe('restAdvice', () => {
     expect(restAdvice(log, 'Fri Jul 18 2026', { rng: () => 0 }).message).toBe(REST_ADVICE[0]);
     expect(restAdvice(log, 'Fri Jul 18 2026', { rng: () => 0.999 }).message)
       .toBe(REST_ADVICE[REST_ADVICE.length - 1]);
+  });
+
+  it('ignores non-mult rounds: a fast hunt does not make a healthy drill look slow', () => {
+    // No history, so only a false 'slowdown' could fire; it must not.
+    const log = [{ date: 'Fri Jul 18 2026', rounds: [
+      r(1, 2500, 5, 'add'),   // hunting patrol, inherently fast
+      r(2, 3800, 5, 'mult'),  // healthy first multiplication round
+    ] }];
+    expect(restAdvice(log, 'Fri Jul 18 2026')).toBeNull();
+  });
+
+  it('stays quiet after a non-mult patrol even when mult fatigue exists', () => {
+    const log = [...history, { date: 'Fri Jul 18 2026', rounds: [
+      r(1, 3000, 5, 'mult'),
+      r(2, 4100, 5, 'mult'),  // mult slowdown happened...
+      r(3, 2500, 5, 'add'),   // ...but she just finished a hunting patrol
+    ] }];
+    expect(restAdvice(log, 'Fri Jul 18 2026')).toBeNull();
+  });
+
+  it('does not repeat schedule advice for rounds past the typical fatigue point', () => {
+    // typical = 2; after mult round 2 (2 + 1 > 2, not equal) stay quiet.
+    const log = [...history, { date: 'Fri Jul 18 2026', rounds: [r(1, 3000), r(2, 3000)] }];
+    expect(restAdvice(log, 'Fri Jul 18 2026')).toBeNull();
+  });
+
+  it('typicalFatigueRound counts mult rounds only', () => {
+    const log = [
+      { date: 'Mon Jul 13 2026', rounds: [r(1, 2500, 5, 'add'), r(2, 4000), r(3, 3000), r(4, 4200)] },
+      { date: 'Tue Jul 14 2026', rounds: [r(1, 4000), r(2, 5600)] },
+    ];
+    // Monday's mult rounds are 4000/3000/4200: slowdown at mult-round 3 (not 4).
+    expect(typicalFatigueRound(log, 'Fri Jul 18 2026')).toBe(2); // floor(median(3, 2))
   });
 });
 

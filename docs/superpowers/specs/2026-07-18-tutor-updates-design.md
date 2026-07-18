@@ -68,8 +68,12 @@ Change, in `src/engine/sr.js`:
   `selectFact`.
 
 Because showing the fact updates `lastSeenAt`, a promoted fact gets at most one
-victory lap per promotion. No schema migration needed beyond tolerating the
-extra `promotedAt` key (factsSR entries are passed through as-is).
+victory lap per promotion. Since a patrol's five problems are generated up
+front (before any is answered), the batch generator additionally rejects
+duplicate fact ids within a patrol (`generatePatrolProblems`), so a lap fact
+can never appear twice in the same patrol. No schema migration needed beyond
+tolerating the extra `promotedAt` key (factsSR entries are passed through
+as-is).
 
 ## Feature 3: Rest advisor (fatigue-aware pacing)
 
@@ -83,8 +87,11 @@ Data capture:
   fact-tracked problems (correct or not, attempt pressure differs on retries)
   into `patrol.responseTimes`.
 - On `finishPatrol`, compute the round's median response time and append
-  `{ round, medianMs, correct, total, samples }` to today's entry in a new
-  profile field `sessionLog`:
+  `{ round, topic, medianMs, correct, total, samples }` to today's entry in a
+  new profile field `sessionLog`. Fatigue math runs over multiplication rounds
+  only: mixing topics would poison the baseline, because single-digit addition
+  rounds are inherently faster than multiplication rounds. Advice is likewise
+  only offered right after a multiplication patrol. Shape:
   `sessionLog = [{ date: 'Fri Jul 18 2026', rounds: [...] }, ...]`, capped at
   the most recent 30 dated entries. Added to `normalizeProfile` (defaults to
   `[]`, preserved on load).
@@ -102,16 +109,20 @@ New module `src/engine/pacing.js`, pure functions with injectable inputs:
   `null` or `{ reason: 'slowdown' | 'schedule', message }`:
   - `'slowdown'` if today's just-finished round itself triggers
     `slowdownRound` (she has already slowed; suggest rest now).
-  - `'schedule'` if `typicalFatigueRound` is known and the NEXT round would be
-    that round (this is the "stop one round early" behavior).
+  - `'schedule'` if `typicalFatigueRound` is known and the NEXT multiplication
+    round would be exactly that round (this is the "stop one round early"
+    behavior; strict equality, so if she plays past the point the game does
+    not keep repeating itself).
   - Messages are drawn from a small pool of in-lore lines, e.g. "The sun dips
     below the trees. Even the swiftest hunters return to camp while their paws
     are still quick." No numbers, no clocks, no guilt.
 
 Surfacing: `CompleteView` shows the advice line under the score when present.
 The RETURN TO CAMP button is unchanged; nothing is disabled. If she keeps
-playing anyway, the game says nothing further that day (advice shows at most
-once per day, tracked in component state passed from App, not persisted).
+playing anyway, the game says nothing further: advice shows at most once per
+day within an app session (tracked as a date string in component state, not
+persisted, so a reload can allow at most one more note that day; day rollover
+in a long-lived tab re-arms it correctly).
 
 ## Feature 4: Cloud sync + tutor view
 
@@ -136,9 +147,13 @@ Server (`server/server.js`, plain `node:http`, zero dependencies, ~150 lines):
 
 Client (`src/storage/sync.js`):
 
-- Container-level (not per-slot) sync settings: `container.sync =
-  { enabled: true, key }`. Container is not run through `normalizeProfile`, so
-  the field survives loads; `loadSavesContainer` untouched.
+- Sync settings live on the container with PER-CHARACTER keys:
+  `container.sync = { enabled: true, keys: { [slotId]: key } }`. She plays two
+  characters (warrior and medicine cat); a single shared key would let one
+  cat's patrols silently overwrite the other cat's page under the mentor's
+  bookmarked link. Each character gets their own tutor link instead. The
+  container is not run through `normalizeProfile`, so the field survives
+  loads; `loadSavesContainer` untouched.
 - `newSyncKey(profile)` generates a readable key like `moss-7k2p9xq4w1`.
 - `syncProfile(key, profile)`: fire-and-forget `fetch('/api/sync', ...)`,
   same-origin, swallow all errors (offline, artifact runtime, dev without

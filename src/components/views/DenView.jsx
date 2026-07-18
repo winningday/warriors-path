@@ -10,6 +10,8 @@ import { getFullName, getRankInfo, getMentorTitle, isMedicinePath } from '../../
 
 export const DenView = ({ profile, slotsCount, onStartPatrol, onSwitchCharacter, onOpenFlashcards, onExport, onImport, syncState, onEnableShare, onDisableShare }) => {
   const [linkCopied, setLinkCopied] = React.useState(false);
+  // A different link (other character, re-enabled sharing) resets the label.
+  React.useEffect(() => { setLinkCopied(false); }, [syncState?.key]);
   const copyTutorLink = async () => {
     try {
       await navigator.clipboard.writeText(syncState.link);

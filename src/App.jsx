@@ -11,7 +11,7 @@ import { lookupStrategy } from './data/strategies.js';
 import { pick, weightedPick, newSlotId } from './engine/utils.js';
 import { SR_BUCKET, SAVE_VERSION, ensureFact, applySRResult } from './engine/sr.js';
 import { autoRankForCorrect, rollEligibleChanceRank, getFullName } from './engine/rank.js';
-import { generateProblem } from './engine/generators.js';
+import { generatePatrolProblems } from './engine/generators.js';
 import { normalizeProfile, normalizeToV13 } from './engine/migration.js';
 import { roundRecord, appendRound, restAdvice } from './engine/pacing.js';
 
@@ -70,7 +70,17 @@ function WarriorsPathGame() {
   const [problemStartedAt, setProblemStartedAt] = useState(null);
   const [pendingCeremony, setPendingCeremony] = useState(null);
   const [restNote, setRestNote] = useState(null);
-  const [adviceShownToday, setAdviceShownToday] = useState(false);
+  // Date string of the last day rest advice was shown, so one gentle note per
+  // day is the ceiling within an app session (and day rollover re-arms it).
+  const [adviceShownFor, setAdviceShownFor] = useState(null);
+
+  // Always-current container. Async handlers and setTimeout callbacks close over
+  // render-time state; writing through this ref instead means a patrol-finish
+  // that fires after an awaited SR write cannot clobber it with stale slots.
+  const containerRef = React.useRef(null);
+  // Monotonic patrol counter. Guards the delayed finish/advance timers so a
+  // patrol abandoned via "return to camp" cannot finish a later patrol's UI.
+  const patrolGenRef = React.useRef(0);
 
   const profile = container && container.slots.find((s) => s.id === container.activeId);
 
@@ -85,6 +95,7 @@ function WarriorsPathGame() {
         active.patrolsToday = 0;
       }
       loaded.activeId = active.id;
+      containerRef.current = loaded;
       setContainer(loaded);
       setView(loaded.slots.length > 1 ? 'slots' : 'den');
     } else {
@@ -94,40 +105,48 @@ function WarriorsPathGame() {
 
   // ---- Slot/profile helpers ----
 
-  const persist = async (next) => { setContainer(next); await persistContainer(next); };
+  const persist = async (next) => {
+    containerRef.current = next;
+    setContainer(next);
+    await persistContainer(next);
+  };
 
   const updateActive = async (mutator) => {
-    if (!container) return;
+    const base = containerRef.current;
+    if (!base) return;
     const next = {
-      ...container,
-      slots: container.slots.map((s) => (s.id === container.activeId ? mutator(s) : s)),
+      ...base,
+      slots: base.slots.map((s) => (s.id === base.activeId ? mutator(s) : s)),
     };
     await persist(next);
     return next.slots.find((s) => s.id === next.activeId);
   };
 
   const addSlotAndActivate = async (newProfile) => {
-    const next = container
-      ? { ...container, activeId: newProfile.id, slots: [...container.slots, newProfile] }
+    const base = containerRef.current;
+    const next = base
+      ? { ...base, activeId: newProfile.id, slots: [...base.slots, newProfile] }
       : { _format: 'warriors-path-saves', _version: SAVE_VERSION, activeId: newProfile.id, slots: [newProfile] };
     await persist(next);
   };
 
   const setActiveSlot = async (id) => {
-    if (!container) return;
-    await persist({ ...container, activeId: id });
+    if (!containerRef.current) return;
+    await persist({ ...containerRef.current, activeId: id });
   };
 
   const deleteSlot = async (id) => {
-    if (!container) return;
-    const remaining = container.slots.filter((s) => s.id !== id);
+    const base = containerRef.current;
+    if (!base) return;
+    const remaining = base.slots.filter((s) => s.id !== id);
     if (remaining.length === 0) {
       await storage.delete(SAVES_KEY);
+      containerRef.current = null;
       setContainer(null);
       setView('intro');
       return;
     }
-    const next = { ...container, slots: remaining, activeId: remaining[0].id };
+    const next = { ...base, slots: remaining, activeId: remaining[0].id };
     await persist(next);
   };
 
@@ -178,7 +197,7 @@ function WarriorsPathGame() {
     const today = new Date().toDateString();
     const isNewDay = profile.lastPlayed !== today;
     // Round stats for the rest advisor. Timing is internal only; the player never sees it.
-    const record = roundRecord(patrolObj.responseTimes || [], correct, patrolObj.problems.length);
+    const record = roundRecord(patrolObj.responseTimes || [], correct, patrolObj.problems.length, patrolObj.type.topic);
     const updated = await updateActive((p) => {
       const next = {
         ...p,
@@ -219,16 +238,24 @@ function WarriorsPathGame() {
 
     if (updated) {
       // Gentle rest suggestion (shown on the completion screen, never blocking).
-      // At most one per app session; restAdvice itself is per-day data.
+      // At most one per day within an app session; day rollover re-arms it.
       let advice = null;
-      if (!adviceShownToday) {
+      if (adviceShownFor !== today) {
         advice = restAdvice(updated.sessionLog || [], today);
-        if (advice) setAdviceShownToday(true);
+        if (advice) setAdviceShownFor(today);
       }
       setRestNote(advice);
       // Fire-and-forget cloud sync so a mentor's dashboard stays current.
-      if (container?.sync?.enabled && container.sync.key) {
-        syncProfile(container.sync.key, updated);
+      // Keys are per character so switching cats never overwrites the other
+      // cat's page behind the mentor's back.
+      const c = containerRef.current;
+      if (c?.sync?.enabled) {
+        let key = c.sync.keys?.[updated.id];
+        if (!key) {
+          key = newSyncKey(updated);
+          await persist({ ...c, sync: { ...c.sync, keys: { ...(c.sync.keys || {}), [updated.id]: key } } });
+        }
+        syncProfile(key, updated);
       }
     }
 
@@ -245,15 +272,19 @@ function WarriorsPathGame() {
   // ---- Mentor sharing (cloud sync) ----
 
   const enableShare = async () => {
-    if (!container || !profile) return;
-    const key = (container.sync && container.sync.key) || newSyncKey(profile);
-    await persist({ ...container, sync: { enabled: true, key } });
-    syncProfile(key, profile);
+    const base = containerRef.current;
+    if (!base || !profile) return;
+    const keys = { ...(base.sync?.keys || {}) };
+    if (!keys[profile.id]) keys[profile.id] = newSyncKey(profile);
+    await persist({ ...base, sync: { enabled: true, keys } });
+    syncProfile(keys[profile.id], profile);
   };
 
   const disableShare = async () => {
-    if (!container || !container.sync) return;
-    await persist({ ...container, sync: { ...container.sync, enabled: false } });
+    const base = containerRef.current;
+    if (!base || !base.sync) return;
+    // Keys are kept so re-enabling restores the same mentor links.
+    await persist({ ...base, sync: { ...base.sync, enabled: false } });
   };
 
   // =====================================================================
@@ -286,7 +317,9 @@ function WarriorsPathGame() {
       onSelect={async (id) => { await setActiveSlot(id); setView('den'); }}
       onNew={() => setView('character')}
       onDelete={async (id) => {
-        if (window.confirm('Forget this Clan cat? This cannot be undone. (Save to file first if you want to keep them.)')) {
+        const sharingNote = container?.sync?.enabled && container.sync.keys?.[id]
+          ? ' Their mentor link will stop updating.' : '';
+        if (window.confirm(`Forget this Clan cat? This cannot be undone. (Save to file first if you want to keep them.)${sharingNote}`)) {
           await deleteSlot(id);
         }
       }}
@@ -376,7 +409,8 @@ function WarriorsPathGame() {
       profile={profile}
       slotsCount={container ? container.slots.length : 0}
       onStartPatrol={(patrolType) => {
-        const problems = Array.from({ length: 5 }, () => generateProblem(patrolType.topic, profile));
+        const problems = generatePatrolProblems(patrolType.topic, profile, 5);
+        patrolGenRef.current += 1;
         setPatrol({ type: patrolType, problems, currentIdx: 0, correct: 0, rewards: { prey: [], herbs: [], borders: 0, training: 0 }, attempts: 0, responseTimes: [] });
         setRestNote(null);
         setAnswerInput(''); setFeedback(null); setShowHint(false); setShowStrategy(false);
@@ -387,8 +421,8 @@ function WarriorsPathGame() {
       onSwitchCharacter={() => setView('slots')}
       onExport={exportProfile}
       onImport={importProfile}
-      syncState={container?.sync?.enabled && container.sync.key
-        ? { key: container.sync.key, link: tutorLink(container.sync.key, window.location.origin) }
+      syncState={container?.sync?.enabled && container.sync.keys?.[profile.id]
+        ? { key: container.sync.keys[profile.id], link: tutorLink(container.sync.keys[profile.id], window.location.origin) }
         : null}
       onEnableShare={enableShare}
       onDisableShare={disableShare}
@@ -448,6 +482,19 @@ function WarriorsPathGame() {
   }
 
   if (view === 'patrol') {
+    // The story-prompt resume path can briefly render with currentIdx past the
+    // last problem while finishPatrol's async work completes. Show the quiet
+    // loading frame instead of crashing on problems[length].
+    if (!patrol || patrol.currentIdx >= patrol.problems.length) {
+      return (
+        <div style={styles.root}>
+          <FontLoader />
+          <div style={{ textAlign: 'center', padding: '120px 20px', opacity: 0.6 }}>
+            <div style={{ ...styles.display, fontSize: 14, letterSpacing: '0.3em' }}>THE PATROL RETURNS...</div>
+          </div>
+        </div>
+      );
+    }
     const current = patrol.problems[patrol.currentIdx];
     const clan = CLANS.find((c) => c.name === profile.clan);
     const factStory = current.factId ? (profile.factStories || {})[current.factId] : null;
@@ -508,7 +555,9 @@ function WarriorsPathGame() {
               return e.bucket === SR_BUCKET.WILD || (e.seen >= 2 && (e.correctStreak || 0) <= 1);
             })();
 
+          const gen = patrolGenRef.current;
           setTimeout(() => {
+            if (patrolGenRef.current !== gen) return;
             if (factWasHard) {
               setStoryPrompt({ factId: current.factId, question: current.question });
               setStoryDraft('');
@@ -527,7 +576,9 @@ function WarriorsPathGame() {
             await recordSR(false);
             setFeedback({ type: 'reveal', text: `${pick(REVEAL_LINES)} The answer was ${current.answer}.` });
             const nextIdx = patrol.currentIdx + 1;
+            const gen = patrolGenRef.current;
             setTimeout(() => {
+              if (patrolGenRef.current !== gen) return;
               if (nextIdx >= patrol.problems.length) {
                 finishPatrol(patrol);
               } else {
@@ -544,7 +595,7 @@ function WarriorsPathGame() {
           }
         }
       }}
-      onQuit={() => setView('den')}
+      onQuit={() => { patrolGenRef.current += 1; setView('den'); }}
     />;
   }
 

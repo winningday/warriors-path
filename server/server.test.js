@@ -130,3 +130,15 @@ describe('CORS', () => {
     expect(res.headers.get('access-control-allow-headers')).toMatch(/content-type/i);
   });
 });
+
+// Added after QA round 1.
+describe('profile shape hardening', () => {
+  it('rejects an array profile', async () => {
+    const res = await fetch(`${base}/api/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: 'arr-abcdefgh', profile: [1, 2, 3] }),
+    });
+    expect(res.status).toBe(400);
+  });
+});

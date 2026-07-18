@@ -16,7 +16,7 @@ const baseProfile = (over = {}) => ({
 });
 
 // Round record helper matching the sessionLog shape from pacing.js.
-const r = (round, medianMs) => ({ round, medianMs, samples: 5, correct: 5, total: 5 });
+const r = (round, medianMs) => ({ round, topic: 'mult', medianMs, samples: 5, correct: 5, total: 5 });
 
 describe('tutorReport accuracy', () => {
   it('computes totalCorrect / totalAttempted', () => {
@@ -92,6 +92,39 @@ describe('tutorReport buckets', () => {
     expect(m).toEqual({ unseen: 63, wild: 1, tracking: 1, trusted: 1 });
     expect(buckets.add.wild).toBe(1);
     expect(buckets.sub).toEqual({ unseen: 0, wild: 0, tracking: 0, trusted: 0 });
+  });
+
+  it('add counts cover only the 36-pair universe and ignore out-of-universe ids', () => {
+    const factsSR = {
+      // Out of universe: created by subtraction word problems (genAdd sub-small).
+      'add:1+5': { bucket: 'tracking', correctStreak: 1, seen: 2, lastSeenAt: 1 },
+      'add:2+12': { bucket: 'trusted', correctStreak: 4, seen: 6, lastSeenAt: 1 },
+      // In universe (single-digit pairs 2..9).
+      'add:3+4': { bucket: 'tracking', correctStreak: 1, seen: 2, lastSeenAt: 1 },
+    };
+    const { buckets } = tutorReport(baseProfile({ factsSR }), NOW);
+    expect(buckets.add).toEqual({ unseen: 35, wild: 0, tracking: 1, trusted: 0 });
+    const a = buckets.add;
+    expect(a.unseen + a.wild + a.tracking + a.trusted).toBe(36);
+  });
+
+  it('add counts sum to 36 even when every out-of-universe id is tracked', () => {
+    const factsSR = {
+      'add:1+9': { bucket: 'trusted', correctStreak: 5, seen: 9, lastSeenAt: 1 },
+      'add:4+10': { bucket: 'wild', correctStreak: 0, seen: 1, lastSeenAt: 1 },
+      'add:6+7': { bucket: 'wild', correctStreak: 0, seen: 1, lastSeenAt: 1 },
+    };
+    const { buckets } = tutorReport(baseProfile({ factsSR }), NOW);
+    expect(buckets.add).toEqual({ unseen: 35, wild: 1, tracking: 0, trusted: 0 });
+  });
+
+  it('sub counts keep the no-universe behavior (unseen stays 0)', () => {
+    const factsSR = {
+      'sub:9-4': { bucket: 'tracking', correctStreak: 1, seen: 2, lastSeenAt: 1 },
+      'sub:12-5': { bucket: 'wild', correctStreak: 0, seen: 1, lastSeenAt: 1 },
+    };
+    const { buckets } = tutorReport(baseProfile({ factsSR }), NOW);
+    expect(buckets.sub).toEqual({ unseen: 0, wild: 1, tracking: 1, trusted: 0 });
   });
 });
 

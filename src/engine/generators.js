@@ -159,3 +159,21 @@ export const generateProblem = (topic, profile) => {
   if (topic === 'fraction') return genFraction(profile);
   return genMult(profile);
 };
+
+// Build a patrol's worth of problems with no repeated fact. Problems are
+// generated up front, so without this a just-promoted "victory lap" fact
+// could land two or three times in the same patrol. Bounded retries keep it
+// safe even for tiny candidate pools.
+export const generatePatrolProblems = (topic, profile, count = 5) => {
+  const problems = [];
+  for (let i = 0; i < count; i++) {
+    let p = generateProblem(topic, profile);
+    let tries = 0;
+    while (p.factId && problems.some((q) => q.factId === p.factId) && tries < 12) {
+      p = generateProblem(topic, profile);
+      tries++;
+    }
+    problems.push(p);
+  }
+  return problems;
+};

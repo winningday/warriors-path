@@ -20,9 +20,20 @@ export const normalizeProfile = (raw) => {
 
   const path = raw.path === PATH_MEDICINE ? PATH_MEDICINE : PATH_WARRIOR;
 
+  // A v13+ save whose rank already sits on the current ladder is kept as-is.
+  // The label remapping below is only for pre-v13 saves, where "Warrior" meant
+  // the old faster ladder. Without this guard, a modern Medicine Cat demoted to
+  // Medicine Cat Apprentice on every load and re-triggered her name ceremony.
+  const isModernSave = (raw._version || 0) >= 13;
+  const currentLadder = ranksFor(path);
+
   let rank = 'Apprentice';
-  if (path === PATH_MEDICINE) {
-    rank = isWarriorOrAbove ? 'Medicine Cat' : 'Medicine Cat Apprentice';
+  if (isModernSave && currentLadder.some((r) => r.name === raw.rank)) {
+    rank = raw.rank;
+  } else if (path === PATH_MEDICINE) {
+    if (oldHighRank === 'Senior Medicine Cat')      rank = 'Senior Medicine Cat';
+    else if (oldHighRank === 'Medicine Cat')        rank = 'Medicine Cat';
+    else rank = isWarriorOrAbove ? 'Medicine Cat' : 'Medicine Cat Apprentice';
   } else if (oldHighRank === 'Warrior')             rank = 'Young Warrior';
   else if (oldHighRank === 'Senior Warrior')        rank = 'Warrior';
   else if (oldHighRank === 'Deputy')                rank = 'Deputy';
@@ -64,7 +75,13 @@ export const normalizeProfile = (raw) => {
     dateCreated: raw.dateCreated || new Date().toISOString(),
     factsSR: raw.factsSR && typeof raw.factsSR === 'object' ? raw.factsSR : {},
     factStories: raw.factStories && typeof raw.factStories === 'object' ? raw.factStories : {},
-    sessionLog: Array.isArray(raw.sessionLog) ? raw.sessionLog : [],
+    // Malformed entries (hand-edited or truncated imports) are dropped so the
+    // pacing engine and tutor report never crash on them.
+    sessionLog: Array.isArray(raw.sessionLog)
+      ? raw.sessionLog
+          .filter((e) => e && typeof e === 'object' && typeof e.date === 'string' && Array.isArray(e.rounds))
+          .map((e) => ({ date: e.date, rounds: e.rounds.filter((r) => r && typeof r === 'object') }))
+      : [],
   };
 };
 

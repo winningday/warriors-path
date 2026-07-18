@@ -32,6 +32,22 @@ const bucketSummary = (b) =>
 
 const noteStyle = { fontSize: 11, color: '#7a8571', fontStyle: 'italic', marginTop: 10 };
 
+// Expand the report's 66 normalized pairs (a <= b) into a full symmetric
+// 11 x 11 times table: rows a = 2..12, columns b = 2..12, each cell looking
+// up the normalized fact (lo x hi).
+const buildSymmetricMultCells = (multGrid) => {
+  const byPair = new Map(multGrid.map((cell) => [`${cell.a}x${cell.b}`, cell]));
+  const cells = [];
+  for (let a = 2; a <= 12; a++) {
+    for (let b = 2; b <= 12; b++) {
+      const lo = Math.min(a, b);
+      const hi = Math.max(a, b);
+      cells.push({ a, b, key: `${a}x${b}`, fact: byPair.get(`${lo}x${hi}`) });
+    }
+  }
+  return cells;
+};
+
 const refreshBtn = {
   background: 'transparent',
   border: 'none',
@@ -82,7 +98,9 @@ export const TutorView = ({ tutorKey }) => {
     return frame(
       <div style={{ textAlign: 'center' }}>
         <div style={{ fontSize: 14, color: '#a39d88', fontStyle: 'italic' }}>
-          No data found for this link yet. Ask the player to complete a patrol while sharing is on.
+          Could not load progress for this link. It may not have synced yet, or the
+          server may be unreachable. Ask the player to complete a patrol with sharing
+          on, then refresh.
         </div>
         <button onClick={load} style={refreshBtn}>refresh</button>
       </div>
@@ -112,7 +130,7 @@ export const TutorView = ({ tutorKey }) => {
         <button onClick={load} style={refreshBtn}>refresh</button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8, marginBottom: 16 }}>
         <StatCard
           label="ACCURACY"
           value={report.accuracy === null ? '-' : `${Math.round(report.accuracy * 100)}%`}
@@ -131,26 +149,32 @@ export const TutorView = ({ tutorKey }) => {
           sub={(profile.streak || 0) === 1 ? 'day' : 'days'}
           accent={accent}
         />
+        <StatCard
+          label="PATROLS"
+          value={profile.patrolsToday || 0}
+          sub="today"
+          accent={accent}
+        />
       </div>
 
       <div style={panel}>
         <span style={labelStyle}>MULTIPLICATION FACTS 2 TO 12</span>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(11, 1fr)', gap: 3 }}>
-          {report.multGrid.map((cell) => (
+          {buildSymmetricMultCells(report.multGrid).map(({ a, b, key, fact }) => (
             <div
-              key={cell.id}
-              title={`${cell.a} × ${cell.b}: streak ${cell.correctStreak}, seen ${cell.seen}`}
+              key={key}
+              title={`${a} × ${b}: streak ${fact.correctStreak}, seen ${fact.seen}`}
               style={{
-                background: BUCKET_COLORS[cell.bucket],
+                background: BUCKET_COLORS[fact.bucket],
                 border: '1px solid #2a3329',
                 borderRadius: 2,
                 padding: '5px 0',
                 textAlign: 'center',
                 fontSize: 9,
-                color: cell.bucket === 'unseen' ? '#5a6155' : '#e8dcc0',
+                color: fact.bucket === 'unseen' ? '#5a6155' : '#e8dcc0',
               }}
             >
-              {cell.a}×{cell.b}
+              {a}×{b}
             </div>
           ))}
         </div>
