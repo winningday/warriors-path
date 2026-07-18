@@ -1,7 +1,7 @@
 {
   "name": "warriors-path",
   "private": true,
-  "version": "15.0.0-a",
+  "version": "15.1.0",
   "description": "A math practice game for a 3rd grade Warrior Cats fan. Built collaboratively by a dad and his daughter.",
   "license": "SEE LICENSE IN LICENSE",
   "repository": {
@@ -16,7 +16,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run"
   },
   "dependencies": {
     "react": "^18.3.1",
@@ -24,6 +25,7 @@
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",
-    "vite": "^5.4.10"
+    "vite": "^5.4.10",
+    "vitest": "^4.1.10"
   }
 }
