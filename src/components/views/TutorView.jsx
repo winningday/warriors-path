@@ -219,7 +219,7 @@ export const TutorView = ({ tutorKey }) => {
         <span style={labelStyle}>SPEED BY SESSION</span>
         {report.speedByDay.length === 0 ? (
           <div style={{ fontSize: 13, color: '#7a8571', fontStyle: 'italic' }}>
-            No sessions recorded yet.
+            No multiplication sessions recorded yet.
           </div>
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, color: '#c8c0a8' }}>

@@ -210,6 +210,8 @@ export const REVEAL_LINES = [
   'A lesson noted in the moss.',
 ];
 
+// Currently unreferenced: quiet drills (v15.1) removed the med-cat drill
+// preamble. Kept as a flavor asset for future medicine-path variety work.
 export const MEDCAT_TRAINING_FLAVOR = [
   'The medicine cat tests your memory of the herbs.',
   'You recite the count without looking.',
