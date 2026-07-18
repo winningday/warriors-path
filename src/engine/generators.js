@@ -1,5 +1,5 @@
 import { randInt, pick } from './utils.js';
-import { factId, selectByBuckets } from './sr.js';
+import { factId, selectFact } from './sr.js';
 import { LOCATIONS_BY_CLAN, MEDICINE_CATS_BY_CLAN } from '../data/clans.js';
 import { HERBS, FRACTION_RECIPIENTS } from '../data/prey.js';
 
@@ -7,7 +7,7 @@ import { HERBS, FRACTION_RECIPIENTS } from '../data/prey.js';
 const pickMultPair = (sr) => {
   const all = [];
   for (let a = 2; a <= 12; a++) for (let b = a; b <= 12; b++) all.push(factId('mult', a, b));
-  const id = selectByBuckets(all, sr || {});
+  const id = selectFact(all, sr || {});
   const m = id.match(/^mult:(\d+)x(\d+)$/);
   const a = parseInt(m[1], 10), b = parseInt(m[2], 10);
   return Math.random() < 0.5 ? [a, b] : [b, a];
@@ -44,7 +44,7 @@ const genMult = (profile) => {
 const pickAddPair = (sr) => {
   const all = [];
   for (let a = 2; a <= 9; a++) for (let b = a; b <= 9; b++) all.push(factId('add', a, b));
-  const id = selectByBuckets(all, sr || {});
+  const id = selectFact(all, sr || {});
   const m = id.match(/^add:(\d+)\+(\d+)$/);
   const a = parseInt(m[1], 10), b = parseInt(m[2], 10);
   return Math.random() < 0.5 ? [a, b] : [b, a];

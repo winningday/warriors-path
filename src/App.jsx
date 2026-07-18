@@ -13,9 +13,11 @@ import { SR_BUCKET, SAVE_VERSION, ensureFact, applySRResult } from './engine/sr.
 import { autoRankForCorrect, rollEligibleChanceRank, getFullName } from './engine/rank.js';
 import { generateProblem } from './engine/generators.js';
 import { normalizeProfile, normalizeToV13 } from './engine/migration.js';
+import { roundRecord, appendRound, restAdvice } from './engine/pacing.js';
 
 // Storage
 import { storage, SAVES_KEY, loadSavesContainer, persistContainer } from './storage/storage.js';
+import { newSyncKey, syncProfile, tutorLink } from './storage/sync.js';
 
 // Shared chrome
 import { styles } from './components/shared/styles.js';
@@ -34,12 +36,28 @@ import { PatrolView } from './components/views/PatrolView.jsx';
 import { CompleteView } from './components/views/CompleteView.jsx';
 import { StoryPromptView } from './components/views/StoryPromptView.jsx';
 import { FlashcardsView } from './components/views/FlashcardsView.jsx';
+import { TutorView } from './components/views/TutorView.jsx';
 
 // =====================================================================
 // MAIN COMPONENT
 // =====================================================================
 
+// Tutor dashboard route: ?tutor=<key> renders the read-only mentor view instead
+// of the game. Computed once at module load, so the early return below never
+// changes between renders (keeps hook order stable).
+const TUTOR_KEY_RE = /^[a-z0-9][a-z0-9-]{7,63}$/;
+const tutorKeyFromUrl = (() => {
+  if (typeof window === 'undefined') return null;
+  const k = new URLSearchParams(window.location.search).get('tutor');
+  return k && TUTOR_KEY_RE.test(k) ? k : null;
+})();
+
 export default function WarriorsPath() {
+  if (tutorKeyFromUrl) return <TutorView tutorKey={tutorKeyFromUrl} />;
+  return <WarriorsPathGame />;
+}
+
+function WarriorsPathGame() {
   const [container, setContainer] = useState(null);
   const [view, setView] = useState('loading');
   const [patrol, setPatrol] = useState(null);
@@ -51,6 +69,8 @@ export default function WarriorsPath() {
   const [storyDraft, setStoryDraft] = useState('');
   const [problemStartedAt, setProblemStartedAt] = useState(null);
   const [pendingCeremony, setPendingCeremony] = useState(null);
+  const [restNote, setRestNote] = useState(null);
+  const [adviceShownToday, setAdviceShownToday] = useState(false);
 
   const profile = container && container.slots.find((s) => s.id === container.activeId);
 
@@ -153,19 +173,23 @@ export default function WarriorsPath() {
 
   // ---- Patrol completion / rank-ups / ceremony detection ----
 
-  const finishPatrol = async (correct, rewards) => {
+  const finishPatrol = async (patrolObj) => {
+    const { correct, rewards } = patrolObj;
     const today = new Date().toDateString();
     const isNewDay = profile.lastPlayed !== today;
+    // Round stats for the rest advisor. Timing is internal only; the player never sees it.
+    const record = roundRecord(patrolObj.responseTimes || [], correct, patrolObj.problems.length);
     const updated = await updateActive((p) => {
       const next = {
         ...p,
         totalCorrect: p.totalCorrect + correct,
-        totalAttempted: p.totalAttempted + patrol.problems.length,
+        totalAttempted: p.totalAttempted + patrolObj.problems.length,
         preyCaught: { ...(p.preyCaught || {}) },
         herbsCaught: { ...(p.herbsCaught || {}) },
         streak: isNewDay ? (p.streak || 0) + 1 : p.streak,
         lastPlayed: today,
         patrolsToday: isNewDay ? 1 : (p.patrolsToday || 0) + 1,
+        sessionLog: appendRound(p.sessionLog || [], today, record),
       };
       rewards.prey.forEach((x) => { next.preyCaught[x] = (next.preyCaught[x] || 0) + 1; });
       rewards.herbs.forEach((x) => { next.herbsCaught[x] = (next.herbsCaught[x] || 0) + 1; });
@@ -193,6 +217,21 @@ export default function WarriorsPath() {
       return next;
     });
 
+    if (updated) {
+      // Gentle rest suggestion (shown on the completion screen, never blocking).
+      // At most one per app session; restAdvice itself is per-day data.
+      let advice = null;
+      if (!adviceShownToday) {
+        advice = restAdvice(updated.sessionLog || [], today);
+        if (advice) setAdviceShownToday(true);
+      }
+      setRestNote(advice);
+      // Fire-and-forget cloud sync so a mentor's dashboard stays current.
+      if (container?.sync?.enabled && container.sync.key) {
+        syncProfile(container.sync.key, updated);
+      }
+    }
+
     if (updated && updated._rankUp) {
       const r = updated.rank;
       if (r === 'Young Warrior') { setPendingCeremony('warrior');  setView('name_ceremony'); return; }
@@ -201,6 +240,20 @@ export default function WarriorsPath() {
       if (r === 'Leader')        { setView('leader_ceremony'); return; }
     }
     setView('complete');
+  };
+
+  // ---- Mentor sharing (cloud sync) ----
+
+  const enableShare = async () => {
+    if (!container || !profile) return;
+    const key = (container.sync && container.sync.key) || newSyncKey(profile);
+    await persist({ ...container, sync: { enabled: true, key } });
+    syncProfile(key, profile);
+  };
+
+  const disableShare = async () => {
+    if (!container || !container.sync) return;
+    await persist({ ...container, sync: { ...container.sync, enabled: false } });
   };
 
   // =====================================================================
@@ -268,6 +321,7 @@ export default function WarriorsPath() {
           dateCreated: new Date().toISOString(),
           factsSR: {},
           factStories: {},
+          sessionLog: [],
         };
         await addSlotAndActivate(newProfile);
         setView('apprentice_ceremony');
@@ -323,7 +377,8 @@ export default function WarriorsPath() {
       slotsCount={container ? container.slots.length : 0}
       onStartPatrol={(patrolType) => {
         const problems = Array.from({ length: 5 }, () => generateProblem(patrolType.topic, profile));
-        setPatrol({ type: patrolType, problems, currentIdx: 0, correct: 0, rewards: { prey: [], herbs: [], borders: 0, training: 0 }, attempts: 0 });
+        setPatrol({ type: patrolType, problems, currentIdx: 0, correct: 0, rewards: { prey: [], herbs: [], borders: 0, training: 0 }, attempts: 0, responseTimes: [] });
+        setRestNote(null);
         setAnswerInput(''); setFeedback(null); setShowHint(false); setShowStrategy(false);
         setProblemStartedAt(Date.now());
         setView('patrol');
@@ -332,6 +387,11 @@ export default function WarriorsPath() {
       onSwitchCharacter={() => setView('slots')}
       onExport={exportProfile}
       onImport={importProfile}
+      syncState={container?.sync?.enabled && container.sync.key
+        ? { key: container.sync.key, link: tutorLink(container.sync.key, window.location.origin) }
+        : null}
+      onEnableShare={enableShare}
+      onDisableShare={disableShare}
     />;
   }
 
@@ -367,7 +427,7 @@ export default function WarriorsPath() {
         setStoryPrompt(null); setStoryDraft('');
         if (wasResuming) {
           const np = { ...patrol }; delete np._pendingResume; setPatrol(np);
-          if (patrol.currentIdx >= patrol.problems.length) finishPatrol(patrol.correct, patrol.rewards);
+          if (patrol.currentIdx >= patrol.problems.length) finishPatrol(patrol);
           else setProblemStartedAt(Date.now());
         }
       }}
@@ -380,7 +440,7 @@ export default function WarriorsPath() {
         setStoryPrompt(null); setStoryDraft('');
         if (wasResuming) {
           const np = { ...patrol }; delete np._pendingResume; setPatrol(np);
-          if (patrol.currentIdx >= patrol.problems.length) finishPatrol(patrol.correct, patrol.rewards);
+          if (patrol.currentIdx >= patrol.problems.length) finishPatrol(patrol);
           else setProblemStartedAt(Date.now());
         }
       }}
@@ -411,6 +471,10 @@ export default function WarriorsPath() {
           return;
         }
         const elapsedMs = problemStartedAt ? (Date.now() - problemStartedAt) : 99999;
+        // First-attempt response times feed the rest advisor (internal only).
+        const responseTimes = (patrol.attempts === 0 && current.factId)
+          ? [...(patrol.responseTimes || []), elapsedMs]
+          : (patrol.responseTimes || []);
 
         const recordSR = async (isCorrect) => {
           if (!current.factId) return;
@@ -434,7 +498,7 @@ export default function WarriorsPath() {
             borders: patrol.rewards.borders + (reward.kind === 'border' ? 1 : 0),
             training: patrol.rewards.training + (reward.kind === 'training' ? 1 : 0),
           };
-          const updatedPatrol = { ...patrol, correct: patrol.correct + 1, rewards: nextRewards, attempts: 0 };
+          const updatedPatrol = { ...patrol, correct: patrol.correct + 1, rewards: nextRewards, attempts: 0, responseTimes };
 
           const factWasHard = current.factId
             && !(profile.factStories || {})[current.factId]
@@ -451,7 +515,7 @@ export default function WarriorsPath() {
               setPatrol({ ...updatedPatrol, currentIdx: nextIdx, _pendingResume: true });
               setAnswerInput(''); setFeedback(null); setShowHint(false); setShowStrategy(false);
             } else if (nextIdx >= patrol.problems.length) {
-              finishPatrol(updatedPatrol.correct, updatedPatrol.rewards);
+              finishPatrol(updatedPatrol);
             } else {
               setPatrol({ ...updatedPatrol, currentIdx: nextIdx });
               setAnswerInput(''); setFeedback(null); setShowHint(false); setShowStrategy(false);
@@ -465,7 +529,7 @@ export default function WarriorsPath() {
             const nextIdx = patrol.currentIdx + 1;
             setTimeout(() => {
               if (nextIdx >= patrol.problems.length) {
-                finishPatrol(patrol.correct, patrol.rewards);
+                finishPatrol(patrol);
               } else {
                 setPatrol({ ...patrol, currentIdx: nextIdx, attempts: 0 });
                 setAnswerInput(''); setFeedback(null); setShowHint(false); setShowStrategy(false);
@@ -473,7 +537,7 @@ export default function WarriorsPath() {
               }
             }, 2400);
           } else {
-            setPatrol({ ...patrol, attempts: patrol.attempts + 1 });
+            setPatrol({ ...patrol, attempts: patrol.attempts + 1, responseTimes });
             setFeedback({ type: 'try_again', text: 'Not quite. Try again.' });
             setShowStrategy(!!current.factId);
             setAnswerInput('');
@@ -488,6 +552,7 @@ export default function WarriorsPath() {
     return <CompleteView
       profile={profile}
       patrol={patrol}
+      restNote={restNote}
       onReturn={() => { setPatrol(null); setView('den'); }}
     />;
   }
