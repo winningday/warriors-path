@@ -219,3 +219,16 @@ export const MEDCAT_TRAINING_FLAVOR = [
   'The medicine cat hums approval.',
 ];
 
+export const REST_ADVICE = [
+  'The sun dips below the trees. The swiftest hunters return to camp while their paws are still quick.',
+  'Your mentor nods toward the den. Rest is part of training too.',
+  'The fresh-kill pile is full enough for today. A wise cat eats, then sleeps.',
+  'Even the sharpest claws grow dull without sleep. The elders say so, and the elders are right.',
+  'The moss in your nest is dry and warm. It has been waiting for you.',
+  'StarClan walks with cats in their dreams. Let sleep carry you there.',
+  'A good hunter knows when the hunt is done. Carry your catch home.',
+  'The stars will keep the territory tonight. Your watch is over.',
+  'Your mentor stretches and yawns. Even mentors curl up when the shadows grow long.',
+  'You have run far today. The path will still be there when you wake.',
+];
+

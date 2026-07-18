@@ -49,9 +49,11 @@ export const PatrolView = ({ patrol, profile, current, factStory, answerInput, s
               {factStory}
             </div>
           )}
-          <div style={{ fontSize: 13, color: '#a39d88', fontStyle: 'italic', marginBottom: 18, textAlign: 'center' }}>
-            {current.story}
-          </div>
+          {current.story && (
+            <div style={{ fontSize: 13, color: '#a39d88', fontStyle: 'italic', marginBottom: 18, textAlign: 'center' }}>
+              {current.story}
+            </div>
+          )}
           <div style={{
             fontSize: current.question.length > 40 ? 16 : 28,
             color: '#e8dcc0',

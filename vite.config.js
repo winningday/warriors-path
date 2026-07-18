@@ -6,5 +6,11 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   esbuild: { jsx: 'automatic' },
   plugins: [react()],
-  server: { port: 5173, open: true },
+  server: {
+    port: 5173,
+    open: true,
+    // Dev-only: forwards sync/tutor API calls to a locally running
+    // `node server/server.js` (see server/README.md).
+    proxy: { '/api': 'http://localhost:8787' },
+  },
 });

@@ -1,7 +1,5 @@
 import { randInt, pick } from './utils.js';
 import { factId, selectByBuckets } from './sr.js';
-import { isMedicinePath } from './rank.js';
-import { MEDCAT_TRAINING_FLAVOR } from '../data/flavor.js';
 import { LOCATIONS_BY_CLAN, MEDICINE_CATS_BY_CLAN } from '../data/clans.js';
 import { HERBS, FRACTION_RECIPIENTS } from '../data/prey.js';
 
@@ -24,9 +22,7 @@ const genMult = (profile) => {
       factId: id, factA: a, factB: b, kind: 'mult-drill',
       question: `${a} × ${b}`,
       answer: a * b,
-      story: isMedicinePath(profile)
-        ? pick(MEDCAT_TRAINING_FLAVOR)
-        : `Your mentor ${profile.mentor || ''} drills you on counting strokes.`.replace(/\s+/g, ' ').trim(),
+      story: null,
       hint: `Think of ${a} groups of ${b}.`,
     };
   }

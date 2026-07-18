@@ -11,6 +11,8 @@ import { SAVE_VERSION } from './sr.js';
 //   - Map old rank labels to current ladder.
 //   - Use a separate `rankFloor` for progress-bar baseline so we never need to fabricate
 //     correct answers (fixes the v13 bug where 32/35 displayed as "60 of 35").
+//   - v15 adds `sessionLog` (preserved when present, default []); factsSR entries pass
+//     through untouched, which keeps the optional `promotedAt` field intact.
 export const normalizeProfile = (raw) => {
   const oldHighRank = raw.highestRank || raw.rank || 'Apprentice';
   const isWarriorOrAbove =
@@ -62,6 +64,7 @@ export const normalizeProfile = (raw) => {
     dateCreated: raw.dateCreated || new Date().toISOString(),
     factsSR: raw.factsSR && typeof raw.factsSR === 'object' ? raw.factsSR : {},
     factStories: raw.factStories && typeof raw.factStories === 'object' ? raw.factStories : {},
+    sessionLog: Array.isArray(raw.sessionLog) ? raw.sessionLog : [],
   };
 };
 
