@@ -4,18 +4,21 @@ import { LOCATIONS_BY_CLAN, MEDICINE_CATS_BY_CLAN } from '../data/clans.js';
 import { HERBS, FRACTION_RECIPIENTS } from '../data/prey.js';
 
 // Build a (a,b) pair for a multiplication drill, biased by SR buckets so hard facts come up more often.
-const pickMultPair = (sr) => {
-  const all = [];
+// `exclude` removes fact ids already used in the current patrol from the candidate pool.
+const pickMultPair = (sr, exclude = []) => {
+  let all = [];
   for (let a = 2; a <= 12; a++) for (let b = a; b <= 12; b++) all.push(factId('mult', a, b));
+  const filtered = all.filter((id) => !exclude.includes(id));
+  if (filtered.length > 0) all = filtered;
   const id = selectFact(all, sr || {});
   const m = id.match(/^mult:(\d+)x(\d+)$/);
   const a = parseInt(m[1], 10), b = parseInt(m[2], 10);
   return Math.random() < 0.5 ? [a, b] : [b, a];
 };
 
-const genMult = (profile) => {
+const genMult = (profile, exclude = []) => {
   const sr = profile.factsSR || {};
-  const [a, b] = pickMultPair(sr);
+  const [a, b] = pickMultPair(sr, exclude);
   const id = factId('mult', a, b);
   if (Math.random() < 0.7) {
     return {
@@ -41,20 +44,22 @@ const genMult = (profile) => {
   };
 };
 
-const pickAddPair = (sr) => {
-  const all = [];
+const pickAddPair = (sr, exclude = []) => {
+  let all = [];
   for (let a = 2; a <= 9; a++) for (let b = a; b <= 9; b++) all.push(factId('add', a, b));
+  const filtered = all.filter((id) => !exclude.includes(id));
+  if (filtered.length > 0) all = filtered;
   const id = selectFact(all, sr || {});
   const m = id.match(/^add:(\d+)\+(\d+)$/);
   const a = parseInt(m[1], 10), b = parseInt(m[2], 10);
   return Math.random() < 0.5 ? [a, b] : [b, a];
 };
 
-const genAdd = (profile) => {
+const genAdd = (profile, exclude = []) => {
   const sr = profile && profile.factsSR ? profile.factsSR : {};
   const mode = Math.random();
   if (mode < 0.35) {
-    const [a, b] = pickAddPair(sr);
+    const [a, b] = pickAddPair(sr, exclude);
     const id = factId('add', a, b);
     const stories = [
       `On your way home you carry ${a} mice. Your patrol-mate carries ${b} voles. How many prey altogether?`,
@@ -152,28 +157,31 @@ const genFraction = (profile) => {
   };
 };
 
-export const generateProblem = (topic, profile) => {
-  if (topic === 'mult')     return genMult(profile);
-  if (topic === 'add')      return genAdd(profile);
+export const generateProblem = (topic, profile, exclude = []) => {
+  if (topic === 'mult')     return genMult(profile, exclude);
+  if (topic === 'add')      return genAdd(profile, exclude);
   if (topic === 'geometry') return genGeometry(profile);
   if (topic === 'fraction') return genFraction(profile);
-  return genMult(profile);
+  return genMult(profile, exclude);
 };
 
 // Build a patrol's worth of problems with no repeated fact. Problems are
 // generated up front, so without this a just-promoted "victory lap" fact
-// could land two or three times in the same patrol. Bounded retries keep it
-// safe even for tiny candidate pools.
+// could land two or three times in the same patrol. Used ids are excluded
+// from selection outright; the bounded retry loop remains as a backstop for
+// fact ids that come from dice rather than selection (e.g. sub-small).
 export const generatePatrolProblems = (topic, profile, count = 5) => {
   const problems = [];
+  const used = [];
   for (let i = 0; i < count; i++) {
-    let p = generateProblem(topic, profile);
+    let p = generateProblem(topic, profile, used);
     let tries = 0;
-    while (p.factId && problems.some((q) => q.factId === p.factId) && tries < 12) {
-      p = generateProblem(topic, profile);
+    while (p.factId && used.includes(p.factId) && tries < 12) {
+      p = generateProblem(topic, profile, used);
       tries++;
     }
     problems.push(p);
+    if (p.factId) used.push(p.factId);
   }
   return problems;
 };

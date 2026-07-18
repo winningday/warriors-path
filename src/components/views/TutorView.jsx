@@ -243,10 +243,10 @@ export const TutorView = ({ tutorKey }) => {
         )}
         {report.typicalFatigueRound !== null && (
           <div style={{ fontSize: 12, color: '#a39d88', fontStyle: 'italic', marginTop: 10 }}>
-            Speed usually stops improving around round {report.typicalFatigueRound}; the game suggests rest one round earlier.
+            Speed usually stops improving around multiplication round {report.typicalFatigueRound}; the game suggests rest one round earlier.
           </div>
         )}
-        <div style={noteStyle}>Times are internal only; the player never sees them.</div>
+        <div style={noteStyle}>Multiplication rounds only, median seconds per answer. Times are internal only; the player never sees them.</div>
       </div>
     </>
   );

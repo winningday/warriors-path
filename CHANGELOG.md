@@ -19,6 +19,49 @@ For design philosophy see [`CLAUDE.md`](./CLAUDE.md).
 
 ---
 
+## [v15.1] - 2026-07-18
+
+Tutor-informed update. Save version bumps to 15 (additive migration; old
+saves load unchanged and gain `sessionLog: []`).
+
+### Added
+- **Quiet drills.** Flashcard-style multiplication drills no longer show a
+  story line above the question (the tutor flagged the preamble as needless
+  cognitive load). Word problems keep their stories; her own "YOUR STORY"
+  mnemonics still appear. The bare fact is centered on the card.
+- **Victory laps.** When a fact gets promoted to a stronger bucket, it has a
+  chance to come back within the next fifteen minutes of play, so a fresh win
+  gets felt again ("I remember this!"). At most once per promotion, never
+  twice in the same patrol.
+- **Rest advisor.** The game records per-round response-time medians for
+  multiplication patrols (internal only, never shown to the player), learns
+  which round her speed usually stops improving, and offers one gentle in-lore
+  rest suggestion per day, one round before that point, on the patrol-complete
+  screen. Nothing is ever locked, counted down, or urgent.
+- **Mentor sharing (cloud sync).** A "share progress with a mentor" panel in
+  the den mints a per-character tutor link. After each patrol the profile
+  syncs to a tiny zero-dependency Node server on the VPS (`server/`,
+  `/api/sync`, JSON-file storage behind Caddy). The link renders a read-only
+  tutor dashboard (`?tutor=<key>`): mastery grid for the full times table,
+  accuracy, streak, recent wins, per-session speed by round, and the learned
+  fatigue round. Deploy steps in DEPLOY.md; the game works unchanged when the
+  server is absent or offline.
+
+### Fixed
+- The final problem of a patrol no longer loses its spaced-repetition update
+  to a stale-state race (long-standing; also protected her typed fact
+  stories).
+- Saves with current-ladder ranks no longer demote on reload; a Medicine Cat
+  save no longer re-triggers the name ceremony after every launch.
+- The story prompt appearing on a patrol's last problem no longer risks a
+  blank screen.
+
+### Developer
+- vitest test suite (82 tests) covering the SR engine, pacing, migration,
+  report building, sync server, and generators. `npm test`.
+
+---
+
 ## [v15a-relicense-polyform] — 2026-04-25
 
 ### Changed — License (legally significant)

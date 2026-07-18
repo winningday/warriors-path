@@ -564,6 +564,9 @@ function WarriorsPathGame() {
               setPatrol({ ...updatedPatrol, currentIdx: nextIdx, _pendingResume: true });
               setAnswerInput(''); setFeedback(null); setShowHint(false); setShowStrategy(false);
             } else if (nextIdx >= patrol.problems.length) {
+              // Push the final answer into state too, or CompleteView would
+              // render the pre-final score (a flawless patrol showing 4 / 5).
+              setPatrol({ ...updatedPatrol, currentIdx: nextIdx });
               finishPatrol(updatedPatrol);
             } else {
               setPatrol({ ...updatedPatrol, currentIdx: nextIdx });

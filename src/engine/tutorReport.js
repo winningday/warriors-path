@@ -95,16 +95,21 @@ const buildRecentWins = (sr, now) => Object.entries(sr)
   .sort(([, x], [, y]) => y.promotedAt - x.promotedAt)
   .map(([id, entry]) => ({ id, label: factLabel(id), promotedAt: entry.promotedAt }));
 
+// Multiplication rounds only, renumbered in mult order, so the table lines up
+// with the typicalFatigueRound caption (which also counts mult rounds).
 const buildSpeedByDay = (sessionLog) => sessionLog
   .slice(-SPEED_DAYS_SHOWN)
   .map((entry) => ({
     date: entry.date,
-    rounds: (entry.rounds || []).map((r) => ({
-      round: r.round,
-      medianMs: r.medianMs,
-      samples: r.samples,
-    })),
-  }));
+    rounds: (entry.rounds || [])
+      .filter((r) => r.topic === 'mult')
+      .map((r, i) => ({
+        round: i + 1,
+        medianMs: r.medianMs,
+        samples: r.samples,
+      })),
+  }))
+  .filter((entry) => entry.rounds.length > 0);
 
 export const tutorReport = (profile, now = Date.now()) => {
   const sr = profile.factsSR || {};

@@ -157,3 +157,33 @@ describe('tutorReport typicalFatigueRound', () => {
     expect(report.typicalFatigueRound).toBe(typicalFatigueRound(sessionLog, today));
   });
 });
+
+describe('tutorReport speedByDay mult filtering', () => {
+  it('drops non-mult rounds and renumbers in mult order', () => {
+    const sessionLog = [{
+      date: 'Sat Jul 18 2026',
+      rounds: [
+        { round: 1, topic: 'add', medianMs: 2500, samples: 5, correct: 5, total: 5 },
+        { round: 2, topic: 'mult', medianMs: 4000, samples: 5, correct: 5, total: 5 },
+        { round: 3, topic: 'geometry', medianMs: null, samples: 0, correct: 4, total: 5 },
+        { round: 4, topic: 'mult', medianMs: 3600, samples: 5, correct: 5, total: 5 },
+      ],
+    }];
+    const { speedByDay } = tutorReport(baseProfile({ sessionLog }), NOW);
+    expect(speedByDay).toEqual([{
+      date: 'Sat Jul 18 2026',
+      rounds: [
+        { round: 1, medianMs: 4000, samples: 5 },
+        { round: 2, medianMs: 3600, samples: 5 },
+      ],
+    }]);
+  });
+
+  it('omits days with no mult rounds', () => {
+    const sessionLog = [{
+      date: 'Sat Jul 18 2026',
+      rounds: [{ round: 1, topic: 'add', medianMs: 2500, samples: 5, correct: 5, total: 5 }],
+    }];
+    expect(tutorReport(baseProfile({ sessionLog }), NOW).speedByDay).toEqual([]);
+  });
+});

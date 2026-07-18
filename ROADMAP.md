@@ -20,6 +20,14 @@ Anything actively being built lives in a Git branch + commits, not here.
 
 ## Shipped
 
+- ✓ **v15.1 (2026-07-18)**: tutor-informed update: quiet drills (no story
+  preamble on flashcard-style problems), victory-lap resurfacing of freshly
+  promoted facts, fatigue-aware rest advisor (mult rounds only, one gentle
+  in-lore note per day, one round before the learned slowdown point), and
+  mentor sharing: per-character cloud sync to a tiny Node server on the VPS
+  plus a read-only tutor dashboard at `?tutor=<key>`. Save version 15.
+  vitest suite added (82 tests). Note: this ships tutor-facing sync only; the
+  full cloud-saves plan below (accounts, restore-on-device) stays deferred.
 - ✓ **v12 → v13** — full lore audit, naming-ceremony arc, save slots, slowed
   progression (60/150/280/420), 30+ flavor lines per pool. (Resolved most of
   v12 feedback in `DAUGHTER_NOTES.md`.)
@@ -76,6 +84,11 @@ wrapper. ~3 hours.
 She wants her progress to survive iPad crashes, Safari storage eviction, and
 device switching. Discussed in detail; deferred for now per her dad's "let's
 just play it" preference.
+
+*(v15.1 note: the tutor-sharing sync server now exists and pushes read-only
+progress snapshots. It is NOT cloud saves: no accounts, no restore path, the
+game never reads from it. If/when cloud saves happen, the plan below stands,
+and the sync server's Caddy `/api/*` route and systemd setup can be reused.)*
 
 **Plan if/when we build it:**
 - SQLite (single file at `/srv/warriors-path-data/saves.db`) — NOT Postgres.

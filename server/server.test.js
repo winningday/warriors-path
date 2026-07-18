@@ -142,3 +142,22 @@ describe('profile shape hardening', () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe('atomic write cleanup', () => {
+  it('returns 500 and leaves no tmp files when the rename fails', async () => {
+    const key = 'dir-blockedkey';
+    // A directory at the destination path makes fs.rename reject.
+    fs.mkdirSync(path.join(dataDir, `${key}.json`), { recursive: true });
+    const res = await fetch(`${base}/api/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key, profile: { prefix: 'Moss' } }),
+    });
+    expect(res.status).toBe(500);
+    const leftovers = fs.readdirSync(dataDir).filter((f) => f.includes('.tmp-'));
+    expect(leftovers).toEqual([]);
+    // The server survives and still answers.
+    const ok = await fetch(`${base}/api/tutor/moss-abcdefgh`);
+    expect([200, 404]).toContain(ok.status);
+  });
+});

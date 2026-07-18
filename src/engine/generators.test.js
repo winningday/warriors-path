@@ -47,3 +47,21 @@ describe('generatePatrolProblems', () => {
     }
   });
 });
+
+describe('generatePatrolProblems pathological SR state', () => {
+  it('never duplicates even when one wild fact dominates selection', () => {
+    const now = Date.now();
+    const factsSR = {};
+    for (let a = 2; a <= 12; a++) for (let b = a; b <= 12; b++) {
+      factsSR[`mult:${Math.min(a, b)}x${Math.max(a, b)}`] =
+        { bucket: 'trusted', correctStreak: 5, seen: 10, lastSeenAt: now - 60000 };
+    }
+    factsSR['mult:7x8'] = { bucket: 'wild', correctStreak: 0, seen: 9, lastSeenAt: now - 60000 };
+    const profile = { clan: 'ThunderClan', path: 'warrior', mentor: 'Lionheart', factsSR };
+    for (let trial = 0; trial < 500; trial++) {
+      const problems = generatePatrolProblems('mult', profile, 5);
+      const ids = problems.map((p) => p.factId).filter(Boolean);
+      expect(new Set(ids).size).toBe(ids.length);
+    }
+  });
+});

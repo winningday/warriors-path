@@ -9,14 +9,22 @@ and in active play.
 > Any new Claude (laptop CLI, claude.ai web, or VPS) should read this section
 > first. Three minutes of reading saves an hour of re-discovery.
 
-- **Current version:** v15a shipped. v15b (mastery-gated topic progression)
-  is the next planned feature.
+- **Current version:** v15.1 shipped (tutor-informed update: quiet drills,
+  victory laps, rest advisor, mentor sharing). v15b (mastery-gated topic
+  progression) is the next planned feature.
 - **Status:** live on the player's VPS (RackNerd) at her dad's IP, served on
   plain HTTP via Caddy on port 80 (no domain yet). GitHub Action auto-builds
-  and rsyncs `dist/` on every push to `main`.
-- **Architecture:** React + Vite SPA. 100% client-side. Storage in browser
-  localStorage. Saves are JSON, versioned, exportable. NO backend, NO
-  database — and we deliberately deferred adding one (see ROADMAP).
+  and rsyncs `dist/` on every push to `main`. The optional tutor sync
+  service (`server/`) is deployed manually by dad (see DEPLOY.md).
+- **Architecture:** React + Vite SPA, client-side, storage in browser
+  localStorage. Saves are JSON, versioned (v15), exportable. One tiny
+  OPTIONAL backend exists as of v15.1: a zero-dependency Node server
+  (`server/server.js`) that stores read-only progress snapshots for the
+  tutor dashboard, one JSON file per sync key. The game works fully without
+  it. There is still NO database and NO accounts system (full cloud saves
+  remain deferred; see ROADMAP).
+- **Tests:** vitest. `npm test`. Engine, pacing, migration, sync server,
+  report builder, and generators are covered; run it before every ship.
 - **Repo layout:**
   - `src/App.jsx` — top-level component + view switch.
   - `src/data/` — game data (clans, ranks, prey, herbs, flavor pools, strategies).
@@ -236,6 +244,25 @@ Promotion rules per correct answer:
 - elapsed > 7s → stay in bucket; still counts as correct.
 - wrong → demote one bucket; reset correctStreak.
 
+**Victory laps (v15.1):** a promotion stamps `promotedAt` on the fact. For 15
+minutes after a promotion, `selectFact` gives a 20% chance of resurfacing a
+promoted-but-not-reseen fact, so a fresh win comes back while it still feels
+good. At most one lap per promotion (showing it updates `lastSeenAt`), and
+`generatePatrolProblems` never repeats a fact within one patrol.
+
+**Rest advisor (v15.1, `src/engine/pacing.js`):** patrols record per-round
+medians of first-attempt response times into `profile.sessionLog` (see the
+module header for the shape). Fatigue math runs over MULTIPLICATION rounds
+only. The game learns the round where her speed typically stops improving and
+offers one in-lore rest line per day on the completion screen, one round
+before that point. Never a timer, never blocking, never visible numbers.
+
+**Mentor sharing (v15.1):** `container.sync = { enabled, keys: {slotId: key} }`.
+Per-character keys; after each patrol the active profile is POSTed
+fire-and-forget to `/api/sync`. `?tutor=<key>` renders the read-only
+`TutorView` dashboard instead of the game. The tutor may see timing data;
+the player never does.
+
 Tracked facts: multiplication 2×2 through 12×12 (order-normalized so 7×8 ==
 8×7), addition single-digit pairs (2..9), and subtraction word problems mapped
 back to the matching addition fact. Geometry, fraction, and large-number word
@@ -308,8 +335,9 @@ Inline SVG, in `src/components/art/`:
 - ❌ Adding features she didn't ask for to inflate scope.
 - ❌ Breaking save compatibility without an explicit migration.
 - ❌ Sound on wrong answers (would feel scolding).
-- ❌ Adding a backend, database, or auth without explicit user request. (Cloud
-  saves are scoped on ROADMAP and INTENTIONALLY deferred.)
+- ❌ Adding a database or auth without explicit user request. (The v15.1 tutor
+  sync server was explicitly requested and is file-based and read-only-out;
+  full cloud saves with accounts are scoped on ROADMAP and stay deferred.)
 - ❌ Re-proposing items in ROADMAP's "Things rejected" section.
 
 ## Technical
