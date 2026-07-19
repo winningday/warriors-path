@@ -58,6 +58,9 @@ const normalizeFactsSR = (raw) => {
       totalElapsedMs: e.totalElapsedMs || 0,
       totalCorrectMs: e.totalCorrectMs || 0,
       firstSeenAt: e.firstSeenAt || null,
+      // v20 — victory-lap stamp. Optional; only present shortly after a
+      // promotion, so preserve it rather than defaulting it into existence.
+      ...(typeof e.promotedAt === 'number' ? { promotedAt: e.promotedAt } : {}),
     };
   }
   return out;
@@ -146,9 +149,21 @@ export const normalizeProfile = (raw) => {
 
   const path = raw.path === PATH_MEDICINE ? PATH_MEDICINE : PATH_WARRIOR;
 
+  // A v13+ save whose rank already sits on the current ladder is kept as-is.
+  // The label remapping below is only for pre-v13 saves, where "Warrior" meant
+  // the old faster ladder. Without this guard, a modern 'Warrior' displayed as
+  // 'Young Warrior' after every reload, and a 'Medicine Cat' demoted to
+  // apprentice and replayed her name ceremony at the next patrol.
+  const isModernSave = (raw._version || 0) >= 13;
+  const currentLadder = ranksFor(path);
+
   let rank = 'Apprentice';
-  if (path === PATH_MEDICINE) {
-    rank = isWarriorOrAbove ? 'Medicine Cat' : 'Medicine Cat Apprentice';
+  if (isModernSave && currentLadder.some((r) => r.name === raw.rank)) {
+    rank = raw.rank;
+  } else if (path === PATH_MEDICINE) {
+    if (oldHighRank === 'Senior Medicine Cat')      rank = 'Senior Medicine Cat';
+    else if (oldHighRank === 'Medicine Cat')        rank = 'Medicine Cat';
+    else rank = isWarriorOrAbove ? 'Medicine Cat' : 'Medicine Cat Apprentice';
   } else if (oldHighRank === 'Warrior')             rank = 'Young Warrior';
   else if (oldHighRank === 'Senior Warrior')        rank = 'Warrior';
   else if (oldHighRank === 'Deputy')                rank = 'Deputy';
@@ -219,6 +234,17 @@ export const normalizeProfile = (raw) => {
     lastDreamAt:     typeof raw.lastDreamAt     === 'number' ? raw.lastDreamAt     : null,
     eventsExperienced: Array.isArray(raw.eventsExperienced)
       ? raw.eventsExperienced.filter((id) => typeof id === 'string')
+      : [],
+    // Pre-v20 whitelist gap: this rolled-at-creation flag was dropped on every
+    // load, which silently weakened the 70/30 medicine-cat-opening mechanic.
+    medCatOpening: typeof raw.medCatOpening === 'boolean' ? raw.medCatOpening : undefined,
+    // v20 — per-round speed history for the rest advisor (tutor update).
+    // Malformed entries (hand-edited or truncated imports) are dropped so the
+    // pacing engine and tutor report never crash on them.
+    sessionLog: Array.isArray(raw.sessionLog)
+      ? raw.sessionLog
+          .filter((e) => e && typeof e === 'object' && typeof e.date === 'string' && Array.isArray(e.rounds))
+          .map((e) => ({ date: e.date, rounds: e.rounds.filter((r) => r && typeof r === 'object') }))
       : [],
   };
 };

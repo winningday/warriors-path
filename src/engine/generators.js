@@ -1,32 +1,33 @@
 import { randInt, pick } from './utils.js';
-import { factId, selectByBuckets } from './sr.js';
-import { isMedicinePath } from './rank.js';
-import { MEDCAT_TRAINING_FLAVOR } from '../data/flavor.js';
+import { factId, selectFact } from './sr.js';
 import { LOCATIONS_BY_CLAN, MEDICINE_CATS_BY_CLAN } from '../data/clans.js';
 import { HERBS, FRACTION_RECIPIENTS } from '../data/prey.js';
 
 // Build a (a,b) pair for a multiplication drill, biased by SR buckets so hard facts come up more often.
-const pickMultPair = (sr) => {
-  const all = [];
+// `exclude` removes fact ids already used in the current patrol from the candidate pool.
+const pickMultPair = (sr, exclude = []) => {
+  let all = [];
   for (let a = 2; a <= 12; a++) for (let b = a; b <= 12; b++) all.push(factId('mult', a, b));
-  const id = selectByBuckets(all, sr || {});
+  const filtered = all.filter((id) => !exclude.includes(id));
+  if (filtered.length > 0) all = filtered;
+  const id = selectFact(all, sr || {});
   const m = id.match(/^mult:(\d+)x(\d+)$/);
   const a = parseInt(m[1], 10), b = parseInt(m[2], 10);
   return Math.random() < 0.5 ? [a, b] : [b, a];
 };
 
-const genMult = (profile) => {
+const genMult = (profile, exclude = []) => {
   const sr = profile.factsSR || {};
-  const [a, b] = pickMultPair(sr);
+  const [a, b] = pickMultPair(sr, exclude);
   const id = factId('mult', a, b);
   if (Math.random() < 0.7) {
     return {
       factId: id, factA: a, factB: b, kind: 'mult-drill',
       question: `${a} × ${b}`,
       answer: a * b,
-      story: isMedicinePath(profile)
-        ? pick(MEDCAT_TRAINING_FLAVOR)
-        : `Your mentor ${profile.mentor || ''} drills you on counting strokes.`.replace(/\s+/g, ' ').trim(),
+      // Quiet drills (v15.2, tutor-informed): no story preamble on
+      // flashcard-style problems; flavor lives in the reward feedback.
+      story: null,
       hint: `Think of ${a} groups of ${b}.`,
     };
   }
@@ -45,20 +46,22 @@ const genMult = (profile) => {
   };
 };
 
-const pickAddPair = (sr) => {
-  const all = [];
+const pickAddPair = (sr, exclude = []) => {
+  let all = [];
   for (let a = 2; a <= 9; a++) for (let b = a; b <= 9; b++) all.push(factId('add', a, b));
-  const id = selectByBuckets(all, sr || {});
+  const filtered = all.filter((id) => !exclude.includes(id));
+  if (filtered.length > 0) all = filtered;
+  const id = selectFact(all, sr || {});
   const m = id.match(/^add:(\d+)\+(\d+)$/);
   const a = parseInt(m[1], 10), b = parseInt(m[2], 10);
   return Math.random() < 0.5 ? [a, b] : [b, a];
 };
 
-const genAdd = (profile) => {
+const genAdd = (profile, exclude = []) => {
   const sr = profile && profile.factsSR ? profile.factsSR : {};
   const mode = Math.random();
   if (mode < 0.35) {
-    const [a, b] = pickAddPair(sr);
+    const [a, b] = pickAddPair(sr, exclude);
     const id = factId('add', a, b);
     const stories = [
       `On your way home you carry ${a} mice. Your patrol-mate carries ${b} voles. How many prey altogether?`,
@@ -298,11 +301,40 @@ const genFraction = (profile) => {
   };
 };
 
-export const generateProblem = (topic, profile) => {
-  if (topic === 'mult')     return genMult(profile);
-  if (topic === 'add')      return genAdd(profile);
+export const generateProblem = (topic, profile, exclude = []) => {
+  if (topic === 'mult')     return genMult(profile, exclude);
+  if (topic === 'add')      return genAdd(profile, exclude);
   if (topic === 'geometry') return genGeometry(profile);
   if (topic === 'fraction') return genFraction(profile);
   if (topic === 'time')     return genTime(profile);
-  return genMult(profile);
+  return genMult(profile, exclude);
+};
+
+// Topics whose fact ids are SELECTED (one id = one specific fact). Only these
+// are deduped within a patrol. Geometry/fraction/time ids are coarse buckets
+// (the same id is a different problem every time), so repeats there are fine.
+const DEDUPE_TOPICS = ['mult', 'add'];
+
+// Build a patrol's worth of problems with no repeated fact. Problems are
+// generated up front, so without this a just-promoted "victory lap" fact (or
+// a lone Wild fact) can land two or three times in the same patrol. Used ids
+// are excluded from selection outright; the bounded retry loop remains as a
+// backstop for fact ids that come from dice rather than selection (sub-small).
+export const generatePatrolProblems = (topic, profile, count = 5) => {
+  const dedupe = DEDUPE_TOPICS.includes(topic);
+  const problems = [];
+  const used = [];
+  for (let i = 0; i < count; i++) {
+    let p = generateProblem(topic, profile, used);
+    if (dedupe) {
+      let tries = 0;
+      while (p.factId && used.includes(p.factId) && tries < 12) {
+        p = generateProblem(topic, profile, used);
+        tries++;
+      }
+      if (p.factId) used.push(p.factId);
+    }
+    problems.push(p);
+  }
+  return problems;
 };
