@@ -65,3 +65,27 @@ describe('generatePatrolProblems pathological SR state', () => {
     }
   });
 });
+
+describe('coarse large-number ids are not deduped away', () => {
+  it('hunting patrols can contain two large-number problems', () => {
+    const profile = { clan: 'ThunderClan', path: 'warrior', mentor: 'Lionheart', factsSR: {} };
+    let sawRepeatLarge = false;
+    for (let trial = 0; trial < 400 && !sawRepeatLarge; trial++) {
+      const ids = generatePatrolProblems('add', profile, 5).map((p) => p.factId);
+      const larges = ids.filter((id) => id === 'add:large' || id === 'sub:large');
+      const counts = larges.reduce((m, id) => { m[id] = (m[id] || 0) + 1; return m; }, {});
+      if (Object.values(counts).some((n) => n >= 2)) sawRepeatLarge = true;
+    }
+    expect(sawRepeatLarge).toBe(true);
+  });
+
+  it('specific add and sub facts still never repeat', () => {
+    const profile = { clan: 'ThunderClan', path: 'warrior', mentor: 'Lionheart', factsSR: {} };
+    for (let trial = 0; trial < 300; trial++) {
+      const ids = generatePatrolProblems('add', profile, 5)
+        .map((p) => p.factId)
+        .filter((id) => id && id !== 'add:large' && id !== 'sub:large');
+      expect(new Set(ids).size).toBe(ids.length);
+    }
+  });
+});

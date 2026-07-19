@@ -254,7 +254,7 @@ const genTimeFuture = (profile) => {
   let endTotal = startTotal + span;
   if (endTotal >= 12 * 60) endTotal = endTotal - 12 * 60;
   const stories = [
-    `The Gathering begins at ${fmtTime(startH, startM)}. The journey takes ${spanH} hour${spanH === 1 ? '' : 's'} and ${spanM} minute${spanM === 1 ? '' : 's'}. When do you set off?`,
+    `You set off for the Gathering at ${fmtTime(startH, startM)}. The journey takes ${spanH} hour${spanH === 1 ? '' : 's'} and ${spanM} minute${spanM === 1 ? '' : 's'}. When do you arrive?`,
     `Your vigil begins at ${fmtTime(startH, startM)} and lasts ${spanH}:${String(spanM).padStart(2, '0')}. When does the next cat take over?`,
     `The patrol leaves at ${fmtTime(startH, startM)} and walks the boundary for ${spanH}:${String(spanM).padStart(2, '0')}. When do they return?`,
     `The medicine cat steeps the herb at ${fmtTime(startH, startM)}; it must steep ${spanH}:${String(spanM).padStart(2, '0')}. When is it ready?`,
@@ -320,19 +320,24 @@ const DEDUPE_TOPICS = ['mult', 'add'];
 // a lone Wild fact) can land two or three times in the same patrol. Used ids
 // are excluded from selection outright; the bounded retry loop remains as a
 // backstop for fact ids that come from dice rather than selection (sub-small).
+// Coarse ids describe a CATEGORY, not a specific fact: the same id is a
+// different problem every time, so repeating it within a patrol is fine and
+// rerolling it would silently skew the topic's problem mix.
+const isCoarseFactId = (id) => id === 'add:large' || id === 'sub:large';
+
 export const generatePatrolProblems = (topic, profile, count = 5) => {
   const dedupe = DEDUPE_TOPICS.includes(topic);
   const problems = [];
   const used = [];
   for (let i = 0; i < count; i++) {
     let p = generateProblem(topic, profile, used);
-    if (dedupe) {
+    if (dedupe && p.factId && !isCoarseFactId(p.factId)) {
       let tries = 0;
-      while (p.factId && used.includes(p.factId) && tries < 12) {
+      while (used.includes(p.factId) && tries < 12) {
         p = generateProblem(topic, profile, used);
         tries++;
       }
-      if (p.factId) used.push(p.factId);
+      if (p.factId && !isCoarseFactId(p.factId)) used.push(p.factId);
     }
     problems.push(p);
   }

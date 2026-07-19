@@ -354,17 +354,12 @@ function WarriorsPathGame() {
       }
       setRestNote(advice);
       // Fire-and-forget cloud sync so a mentor's dashboard stays current.
-      // Keys are per character so switching cats never overwrites the other
-      // cat's page behind the mentor's back.
+      // Sharing is opt-in PER CHARACTER: a cat only uploads once her own den's
+      // share button was pressed (which mints her key and flags her enabled),
+      // so switching cats never quietly uploads or overwrites anything.
       const c = containerRef.current;
-      if (c?.sync?.enabled) {
-        let key = c.sync.keys?.[updated.id];
-        if (!key) {
-          key = newSyncKey(updated);
-          await persist({ ...c, sync: { ...c.sync, keys: { ...(c.sync.keys || {}), [updated.id]: key } } });
-        }
-        syncProfile(key, updated);
-      }
+      const syncKey = c?.sync?.enabledFor?.[updated.id] ? c.sync.keys?.[updated.id] : null;
+      if (syncKey) syncProfile(syncKey, updated);
     }
 
     if (updated && updated._rankUp) {
@@ -384,15 +379,18 @@ function WarriorsPathGame() {
     if (!base || !profile) return;
     const keys = { ...(base.sync?.keys || {}) };
     if (!keys[profile.id]) keys[profile.id] = newSyncKey(profile);
-    await persist({ ...base, sync: { enabled: true, keys } });
+    const enabledFor = { ...(base.sync?.enabledFor || {}), [profile.id]: true };
+    await persist({ ...base, sync: { keys, enabledFor } });
     syncProfile(keys[profile.id], profile);
   };
 
   const disableShare = async () => {
     const base = containerRef.current;
-    if (!base || !base.sync) return;
-    // Keys are kept so re-enabling restores the same mentor links.
-    await persist({ ...base, sync: { ...base.sync, enabled: false } });
+    if (!base || !base.sync || !profile) return;
+    // Only this character stops sharing. Her key is kept so re-enabling
+    // restores the same mentor link.
+    const enabledFor = { ...(base.sync.enabledFor || {}), [profile.id]: false };
+    await persist({ ...base, sync: { ...base.sync, enabledFor } });
   };
 
   // =====================================================================
@@ -425,7 +423,7 @@ function WarriorsPathGame() {
       onSelect={async (id) => { await setActiveSlot(id); setView('den'); }}
       onNew={() => setView('character')}
       onDelete={async (id) => {
-        const sharingNote = container?.sync?.enabled && container.sync.keys?.[id]
+        const sharingNote = container?.sync?.enabledFor?.[id] && container.sync.keys?.[id]
           ? ' Their mentor link will stop updating.' : '';
         if (window.confirm(`Forget this Clan cat? This cannot be undone. (Save to file first if you want to keep them.)${sharingNote}`)) {
           await deleteSlot(id);
@@ -547,7 +545,7 @@ function WarriorsPathGame() {
       onSwitchCharacter={() => setView('slots')}
       onExport={exportProfile}
       onImport={importProfile}
-      syncState={container?.sync?.enabled && container.sync.keys?.[profile.id]
+      syncState={container?.sync?.enabledFor?.[profile.id] && container.sync.keys?.[profile.id]
         ? { key: container.sync.keys[profile.id], link: tutorLink(container.sync.keys[profile.id], window.location.origin) }
         : null}
       onEnableShare={enableShare}
@@ -752,7 +750,14 @@ function WarriorsPathGame() {
           });
         };
 
-        if (num === current.answer) {
+        // Clock answers wrap at 12: the generator stores 12:30 as 0:30, but a
+        // kid typing the natural 12:30 (750 minutes) is equally right. Compare
+        // clock-valued kinds modulo 12 hours; durations stay exact.
+        const isClockAnswer = current.kind === 'time-clock' || current.kind === 'time-future';
+        const isRight = isClockAnswer
+          ? ((num % 720) + 720) % 720 === ((current.answer % 720) + 720) % 720
+          : num === current.answer;
+        if (isRight) {
           await recordResult(true, 'correct');
           const reward = buildCorrectReward(patrol.type, profile);
           setFeedback({ type: 'correct', praise: pick(PRAISE), ...reward });

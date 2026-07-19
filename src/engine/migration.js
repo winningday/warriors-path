@@ -58,7 +58,7 @@ const normalizeFactsSR = (raw) => {
       totalElapsedMs: e.totalElapsedMs || 0,
       totalCorrectMs: e.totalCorrectMs || 0,
       firstSeenAt: e.firstSeenAt || null,
-      // v20 — victory-lap stamp. Optional; only present shortly after a
+      // v20: victory-lap stamp. Optional; only present shortly after a
       // promotion, so preserve it rather than defaulting it into existence.
       ...(typeof e.promotedAt === 'number' ? { promotedAt: e.promotedAt } : {}),
     };
@@ -238,7 +238,7 @@ export const normalizeProfile = (raw) => {
     // Pre-v20 whitelist gap: this rolled-at-creation flag was dropped on every
     // load, which silently weakened the 70/30 medicine-cat-opening mechanic.
     medCatOpening: typeof raw.medCatOpening === 'boolean' ? raw.medCatOpening : undefined,
-    // v20 — per-round speed history for the rest advisor (tutor update).
+    // v20: per-round speed history for the rest advisor (tutor update).
     // Malformed entries (hand-edited or truncated imports) are dropped so the
     // pacing engine and tutor report never crash on them.
     sessionLog: Array.isArray(raw.sessionLog)
