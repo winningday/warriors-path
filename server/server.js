@@ -136,7 +136,12 @@ export const createServer = ({ dataDir }) =>
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 if (isMain) {
   const port = Number(process.env.PORT) || 8787;
-  const dataDir = process.env.DATA_DIR || '/srv/warriors-path-data';
+  // Default to a data/ folder next to this file so `node server/server.js`
+  // works out of the box on a dev machine (the old /srv default silently
+  // failed on macOS, where / is read-only). The VPS systemd unit sets
+  // DATA_DIR=/srv/warriors-path-data explicitly.
+  const dataDir = process.env.DATA_DIR
+    || path.join(path.dirname(new URL(import.meta.url).pathname), 'data');
   createServer({ dataDir }).listen(port, () => {
     console.log(`warriors-path sync server on port ${port}, data in ${dataDir}`);
   });

@@ -27,15 +27,16 @@ Rules:
 Environment variables, both optional:
 
 - `PORT` (default `8787`)
-- `DATA_DIR` (default `/srv/warriors-path-data`)
+- `DATA_DIR` (default: a `data/` folder next to `server.js`; the VPS systemd
+  unit sets `/srv/warriors-path-data` explicitly)
 
 ## Local development
 
 Run the server and the Vite dev server side by side:
 
 ```bash
-DATA_DIR=/tmp/wp-sync-dev node server/server.js   # terminal 1
-npm run dev                                       # terminal 2
+node server/server.js   # terminal 1 (stores snapshots in server/data/, gitignored)
+npm run dev             # terminal 2
 ```
 
 `vite.config.js` proxies `/api` to `http://localhost:8787`, so the game at
