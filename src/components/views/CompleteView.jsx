@@ -7,7 +7,7 @@ import { CLANS } from '../../data/clans.js';
 import { getFullName } from '../../engine/rank.js';
 import { trinketById } from '../../data/trinkets.js';
 
-export const CompleteView = ({ profile, patrol, onReturn }) => {
+export const CompleteView = ({ profile, patrol, restNote, onReturn }) => {
   const clan = CLANS.find((c) => c.name === profile.clan);
   const fullName = getFullName(profile);
   const perfect = patrol.correct === patrol.problems.length;
@@ -53,6 +53,16 @@ export const CompleteView = ({ profile, patrol, onReturn }) => {
              patrol.correct >= 2 ? 'You served the Clan today. Rest now.' :
                                    'Every warrior stumbles. Return tomorrow and try again.'}
           </div>
+          {restNote && (
+            <div style={{
+              marginTop: 16, padding: '12px 16px',
+              background: 'rgba(122, 133, 113, 0.1)',
+              border: '1px dashed rgba(168, 180, 145, 0.3)',
+              fontSize: 13, color: '#bdb898', fontStyle: 'italic', borderRadius: 2,
+            }}>
+              {restNote.message}
+            </div>
+          )}
         </div>
 
         {Object.keys(preyCounts).length > 0 && (

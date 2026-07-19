@@ -205,6 +205,96 @@ rsync -avz --delete dist/ warriors@your-vps:/srv/warriors-path/
 
 ---
 
+## Tutor sync service (v15.2, optional)
+
+Since v15.2 the repo also contains a tiny backend in `server/` that lets the
+game push progress snapshots so a tutor can view them at
+`http://YOUR-VPS-IP/?tutor=<key>`. It is a single zero-dependency Node file
+(`server/server.js`) storing one JSON document per sync key. Full details in
+`server/README.md`.
+
+> **Deploying the sync service is a manual step by dad.** The GitHub Action
+> only builds and rsyncs static files into `/srv/warriors-path/`; it never
+> installs, starts, or restarts the sync service. If you skip this whole
+> section, the game still works exactly as before (sync attempts fail
+> silently and gameplay is unaffected).
+
+### 1. Create the data directory
+
+```bash
+mkdir -p /srv/warriors-path-data
+chown warriors:warriors /srv/warriors-path-data
+chmod 700 /srv/warriors-path-data
+```
+
+Mode `700` on purpose: only the `warriors` user can read the synced
+profiles. Caddy never serves this directory and the server never lists it.
+
+### 2. Install the systemd unit
+
+The service expects the repo checkout at `/srv/warriors-path-src/` (the same
+checkout the VPS ops notes in CLAUDE.md assume). Create
+`/etc/systemd/system/warriors-sync.service`:
+
+```ini
+[Unit]
+Description=Warrior's Path tutor sync service
+After=network.target
+
+[Service]
+User=warriors
+Group=warriors
+Environment=DATA_DIR=/srv/warriors-path-data
+Environment=PORT=8787
+ExecStart=/usr/bin/node /srv/warriors-path-src/server/server.js
+Restart=on-failure
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Then enable and start it:
+
+```bash
+systemctl daemon-reload
+systemctl enable --now warriors-sync
+systemctl status warriors-sync    # should say active (running)
+```
+
+### 3. Add the API route to Caddy
+
+Inside the existing `:80 { ... }` block (Option A above), add:
+
+```caddyfile
+handle /api/* {
+  reverse_proxy 127.0.0.1:8787
+}
+```
+
+then:
+
+```bash
+systemctl reload caddy
+```
+
+The service listens only on localhost; Caddy is the only way in from outside.
+The sync key inside the tutor link is the only access control, so the link
+should be shared with the tutor and no one else.
+
+### 4. Updating the service after a code change
+
+```bash
+# as warriors, in /srv/warriors-path-src/
+git pull --ff-only origin main
+sudo systemctl restart warriors-sync
+```
+
+(Static-site deploys via the GitHub Action do not touch the service; a
+restart is only needed when `server/server.js` itself changes.)
+
+---
+
 ## Why this is safe
 
 - **No backend.** The app is pure static files + browser-side JavaScript +

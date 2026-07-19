@@ -40,6 +40,11 @@ export const PatrolView = ({ patrol, profile, current, factStory, answerInput, s
           borderRadius: 2,
           marginBottom: 20,
           minHeight: 220,
+          // Quiet drills have no story line; center the bare fact vertically
+          // so the card does not read as top-heavy with empty space below.
+          ...(!current.story && !factStory ? {
+            display: 'flex', flexDirection: 'column', justifyContent: 'center',
+          } : {}),
         }}>
           {factStory && (
             <div style={{
@@ -54,9 +59,11 @@ export const PatrolView = ({ patrol, profile, current, factStory, answerInput, s
               {factStory}
             </div>
           )}
-          <div style={{ fontSize: 13, color: '#a39d88', fontStyle: 'italic', marginBottom: 18, textAlign: 'center' }}>
-            {current.story}
-          </div>
+          {current.story && (
+            <div style={{ fontSize: 13, color: '#a39d88', fontStyle: 'italic', marginBottom: 18, textAlign: 'center' }}>
+              {current.story}
+            </div>
+          )}
           {current.clock && (
             <div style={{ marginBottom: 16 }}>
               <ClockFace hour={current.clock.hour} minute={current.clock.minute} accent={clanAccent} size={200} />
