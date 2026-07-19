@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { styles, smallBtn } from '../shared/styles.js';
 import { FontLoader } from '../shared/FontLoader.jsx';
 import { StatCard } from '../shared/StatCard.jsx';
@@ -32,7 +32,23 @@ export const DenView = ({
   onOpenHonors,
   onExport,
   onImport,
+  syncState,
+  onEnableShare,
+  onDisableShare,
 }) => {
+  // Mentor sharing: copy-link label. A different link (other character,
+  // re-enabled sharing) resets the label.
+  const [linkCopied, setLinkCopied] = useState(false);
+  useEffect(() => { setLinkCopied(false); }, [syncState?.key]);
+  const copyTutorLink = async () => {
+    try {
+      await navigator.clipboard.writeText(syncState.link);
+      setLinkCopied(true);
+    } catch (e) {
+      // Clipboard can be unavailable (older Safari, non-secure origins).
+      // The link text below is selectable, so copying by hand still works.
+    }
+  };
   const clan = CLANS.find((c) => c.name === profile.clan);
   const fullName = getFullName(profile);
   const { current, next } = getRankInfo(profile);
@@ -438,6 +454,39 @@ export const DenView = ({
           <button onClick={onSwitchCharacter} style={{ ...smallBtn, width: '100%', display: 'block' }}>
             {slotsCount > 1 ? 'switch to another Clan cat' : 'add another Clan cat'}
           </button>
+
+          <div style={{ marginTop: 14 }}>
+            {syncState ? (
+              <div style={{
+                background: 'rgba(26, 36, 25, 0.5)', border: '1px solid #2a3329',
+                padding: '12px 14px', borderRadius: 2,
+              }}>
+                <div style={{ ...styles.display, fontSize: 9, letterSpacing: '0.3em', color: '#7a8571', textAlign: 'center', marginBottom: 8 }}>
+                  SHARING WITH A MENTOR
+                </div>
+                <div style={{ fontSize: 11, color: '#a39d88', marginBottom: 8, textAlign: 'center' }}>
+                  Your progress travels to this link after each patrol. Share it only with your mentor.
+                </div>
+                <input readOnly value={syncState.link}
+                  onFocus={(e) => e.target.select()}
+                  style={{
+                    width: '100%', boxSizing: 'border-box', padding: '8px 10px',
+                    background: '#131a12', border: '1px solid #2a3329', borderRadius: 2,
+                    color: '#c8c0a8', fontSize: 11, fontFamily: 'monospace', marginBottom: 8,
+                  }} />
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={copyTutorLink} style={smallBtn}>
+                    {linkCopied ? 'link copied' : 'copy link'}
+                  </button>
+                  <button onClick={onDisableShare} style={smallBtn}>stop sharing</button>
+                </div>
+              </div>
+            ) : (
+              <button onClick={onEnableShare} style={{ ...smallBtn, width: '100%', display: 'block' }}>
+                share progress with a mentor
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Discreet parent-dashboard handle. The decorative line below looks like a footer

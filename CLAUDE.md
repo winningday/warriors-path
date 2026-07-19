@@ -9,14 +9,28 @@ and in active play.
 > Any new Claude (laptop CLI, claude.ai web, or VPS) should read this section
 > first. Three minutes of reading saves an hour of re-discovery.
 
-- **Current version:** v15a shipped. v15b (mastery-gated topic progression)
-  is the next planned feature.
+- **Current version:** v15.2 shipped (tutor update: quiet drills, victory
+  laps, rest advisor, mentor sharing) on top of the v15.0.0-b..i feature run
+  (Vigil patrol, per-kind SR, trinkets, Honors, Field Guide, narrative
+  beats, parent StatsView). v15b (mastery-gated topic progression) remains
+  the next planned feature.
 - **Status:** live on the player's VPS (RackNerd) at her dad's IP, served on
   plain HTTP via Caddy on port 80 (no domain yet). GitHub Action auto-builds
-  and rsyncs `dist/` on every push to `main`.
-- **Architecture:** React + Vite SPA. 100% client-side. Storage in browser
-  localStorage. Saves are JSON, versioned, exportable. NO backend, NO
-  database — and we deliberately deferred adding one (see ROADMAP).
+  and rsyncs `dist/` on every push to `main`. The optional tutor sync
+  service (`server/`) is deployed manually by dad (see DEPLOY.md).
+- **Architecture:** React + Vite SPA, client-side, storage in browser
+  localStorage. Saves are JSON, versioned (v20), exportable. One tiny
+  OPTIONAL backend exists as of v15.2: a zero-dependency Node server
+  (`server/server.js`) storing read-only progress snapshots for the tutor
+  dashboard (`?tutor=<key>`), one JSON file per per-character sync key. The
+  game works fully without it. Still NO database and NO accounts (full cloud
+  saves remain deferred; see ROADMAP).
+- **Tests:** vitest, `npm test` (SR, pacing, migration, generators, tutor
+  report, sync server). Run it plus `npm run build` before every ship.
+- **Warning for future sessions:** always `git fetch` and confirm you are on
+  the real origin/main before building on this repo. Parallel Claude web
+  sessions have shipped large features here; the v15.1 branch was built on a
+  stale base and had to be re-ported (see docs/superpowers/specs).
 - **Repo layout:**
   - `src/App.jsx` — top-level component + view switch.
   - `src/data/` — game data (clans, ranks, prey, herbs, flavor pools, strategies).

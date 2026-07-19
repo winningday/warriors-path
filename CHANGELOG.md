@@ -9,9 +9,53 @@ For design philosophy see [`CLAUDE.md`](./CLAUDE.md).
 
 ---
 
-## [Unreleased]
+## [v15.2] - 2026-07-19
 
-### Fixed — v15.0.0-i
+Tutor-informed update, reconciled onto the v15.0.0-i feature base. Save
+version bumps to 20 (additive; older saves load unchanged and gain
+`sessionLog: []`).
+
+### Added
+- **Quiet drills.** Flashcard-style multiplication drills no longer show a
+  story line above the question (the tutor flagged the preamble as needless
+  cognitive load). Word problems keep their stories; her own "YOUR STORY"
+  mnemonics still appear; the bare fact is centered on the card.
+- **Victory laps.** When a fact is promoted to a stronger bucket, it has a
+  chance to come back within the next fifteen minutes of play, so a fresh
+  win gets felt again. At most once per promotion, never twice in the same
+  patrol (patrols also no longer repeat any multiplication or addition fact).
+- **Rest advisor.** Multiplication patrols record per-round response-time
+  medians (internal only; the player never sees a number or timer). The game
+  learns which round her speed usually stops improving and offers one gentle
+  in-lore rest line per day, one round before that point, on the
+  patrol-complete screen. Nothing is locked or counted down.
+- **Mentor sharing (cloud sync).** A "share progress with a mentor" panel in
+  the den mints a per-character tutor link. After each patrol the profile
+  syncs to a tiny zero-dependency Node server (`server/`, deploy steps in
+  DEPLOY.md). The link renders a read-only tutor dashboard (`?tutor=<key>`):
+  full times-table mastery grid, accuracy, recent wins, slowest-solid facts,
+  per-topic table, and per-session multiplication speed with the learned
+  fatigue round. The game works unchanged when the server is absent.
+
+### Fixed
+- Saves with current-ladder ranks no longer demote on reload; a Medicine Cat
+  save no longer re-triggers the name ceremony after every launch.
+- The complete screen now reflects the final answer (a flawless patrol no
+  longer shows 4 / 5, and the last reward appears in the tables).
+- `medCatOpening` is preserved across loads (the 70/30 medicine-cat-opening
+  mechanic was silently weakened by the old whitelist).
+- Same-fact repetition within one patrol eliminated for multiplication and
+  addition patrols.
+
+### Developer
+- vitest suite (`npm test`) covering SR, pacing, migration, generators, the
+  tutor report, and the sync server.
+
+---
+
+## [v15.0.0-i] - 2026-07-18
+
+### Fixed
 - **Skip-story crash at end of patrol.** When the "tell yourself a story"
   prompt appeared after the *last* correct answer of a patrol, tapping
   SKIP (or SAVE) cleared the overlay before `finishPatrol` had finished
